@@ -1,11 +1,490 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   AKI_HA PORTFOLIO — DESIGN SYSTEM
+   Direction : Kinetic × Editorial (autumn editorial)
+   Palette   : cream paper × warm sumi (near-black) × maple orange (1 accent)
+   Type      : JP display = Zen Kaku Gothic New (extra-bold gothic, self-hosted)
+               EN display = Outfit (geometric sans, self-hosted)
+   Fonts are imported in main.ts via @fontsource (no Google Fonts <link>).
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   DESIGN TOKENS
+   Page Theme Lock: one world, light + dark. Auto-switch via prefers-color-scheme,
+   plus manual override via :root[data-theme]. The accent (maple) stays the same
+   hue in both modes so the brand reads identically. Mascot yellow lives only in
+   imagery, never as a CSS accent, so the single-accent rule holds.
+   -------------------------------------------------------------------------- */
 :root {
-  /* --- design tokens (placeholder, fill in later phase) --- */
-  /* --color-bg: ; */
-  /* --color-fg: ; */
-  /* --color-accent: ; */
-  /* --font-base: ; */
-  /* --font-heading: ; */
-  /* --space-unit: ; */
+  /* surfaces */
+  --paper: #f4eee1;        /* cream paper background            */
+  --paper-2: #ece2cf;      /* raised panel / inset              */
+  --paper-3: #e4d8c0;      /* deeper inset (chips, wells)       */
+  --line: #d7c9ac;         /* hairline rules                    */
+  --line-strong: #c4b291;  /* stronger rules                    */
+
+  /* ink (warm near-black) */
+  --ink: #211b13;          /* primary text / headlines          */
+  --ink-soft: #4f4535;     /* secondary text                    */
+  --ink-mute: #7d7160;     /* muted / captions                  */
+
+  /* accent (maple orange, single accent for the whole page) */
+  --maple: #c7461c;        /* accent surfaces / large accent    */
+  --maple-ink: #a5380f;    /* accent as small text on paper (AA)*/
+  --on-maple: #fbf3e6;     /* text on a maple fill              */
+
+  /* type */
+  --font-jp: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", "Noto Sans JP", sans-serif;
+  --font-en: "Outfit", "Zen Kaku Gothic New", ui-sans-serif, system-ui, sans-serif;
+
+  /* spacing scale (rem) — 4pt-ish editorial rhythm */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* layout */
+  --maxw: 1200px;
+  --radius: 14px;   /* single corner-radius scale for the whole page */
+  --radius-sm: 10px;
+
+  color-scheme: light dark;
+}
+
+/* Dark mode: same editorial world, warmed sumi surfaces + brightened maple */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17130d;
+    --paper-2: #201a12;
+    --paper-3: #2a2217;
+    --line: #362c1e;
+    --line-strong: #4a3d29;
+
+    --ink: #efe6d4;
+    --ink-soft: #cbbda3;
+    --ink-mute: #988a72;
+
+    --maple: #e86b3c;
+    --maple-ink: #f0895e;
+    --on-maple: #1a1206;
+  }
+}
+
+/* Manual overrides win in both directions */
+:root[data-theme="light"] {
+  --paper: #f4eee1; --paper-2: #ece2cf; --paper-3: #e4d8c0;
+  --line: #d7c9ac; --line-strong: #c4b291;
+  --ink: #211b13; --ink-soft: #4f4535; --ink-mute: #7d7160;
+  --maple: #c7461c; --maple-ink: #a5380f; --on-maple: #fbf3e6;
+}
+:root[data-theme="dark"] {
+  --paper: #17130d; --paper-2: #201a12; --paper-3: #2a2217;
+  --line: #362c1e; --line-strong: #4a3d29;
+  --ink: #efe6d4; --ink-soft: #cbbda3; --ink-mute: #988a72;
+  --maple: #e86b3c; --maple-ink: #f0895e; --on-maple: #1a1206;
+}
+
+/* -----------------------------------------------------------------------------
+   BASE
+   -------------------------------------------------------------------------- */
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-jp);
+  font-weight: 500;
+  /* 和欧混植の基本: 本文は行間広め・字間わずかに開ける（可読性優先）。
+     palt でかな/latin のツメを整え、和文と欧文のリズムを合わせる。 */
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+  font-feature-settings: "palt" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection { background: var(--maple); color: var(--on-maple); }
+
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+
+/* -----------------------------------------------------------------------------
+   TYPOGRAPHY — 和欧混植ルール
+   ・ディスプレイ（見出し）: 和文=Zen Kaku 900 を主役に。行間を詰める(1.02–1.1)。
+     latin は Outfit で -0.02em ツメ。和文は palt で自然にツメる。
+     → 巨大タイポでは和文の字面が大きいので line-height を最小、latin 混在時は
+       italic/descender を持つ y g j p q に leading 余白(pb)を確保する。
+   ・ラベル/欧文キッカー: Outfit を通常字幅で。過剰な uppercase tracking は避ける
+     (テンプレ感の原因)。tracking は 0.02–0.06em に留める。
+   ・本文: 和文 1.9 / latin 交じりでも破綻しないよう letter-spacing 0.01em。
+   -------------------------------------------------------------------------- */
+.font-en { font-family: var(--font-en); }
+.font-jp { font-family: var(--font-jp); }
+
+.display {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: 0.01em;
+}
+.display-en {
+  font-family: var(--font-en);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+/* Section heading used across About / Activity / Works */
+.section-h {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.section-kicker {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  color: var(--maple-ink);
+}
+
+.lead {
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  line-height: 2;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+/* -----------------------------------------------------------------------------
+   LAYOUT PRIMITIVES
+   -------------------------------------------------------------------------- */
+.u-container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 768px) { .u-container { padding-inline: 2rem; } }
+
+.hairline { height: 1px; background: var(--line); border: 0; }
+
+/* Attribute / tech chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-en);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+}
+.chip--accent {
+  color: var(--maple-ink);
+  border-color: color-mix(in oklab, var(--maple) 45%, var(--line-strong));
+}
+
+/* Buttons — one pill system, contrast-checked in both themes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.18s ease, border-color 0.18s ease;
+}
+.btn:active { transform: translateY(1px) scale(0.99); }
+.btn--primary { background: var(--ink); color: var(--paper); }
+.btn--primary:hover { background: var(--maple); color: var(--on-maple); }
+.btn--ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+.btn--ghost:hover { border-color: var(--ink); }
+
+/* Editorial marker: small maple index tag */
+.marker {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--maple-ink);
+}
+
+/* -----------------------------------------------------------------------------
+   NAV
+   -------------------------------------------------------------------------- */
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 64px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  background: color-mix(in oklab, var(--paper) 82%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.nav__inner { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.nav__mark { font-family: var(--font-en); font-weight: 800; letter-spacing: 0.12em; font-size: 1rem; }
+.nav__links { display: none; gap: 1.75rem; }
+.nav__links a {
+  font-family: var(--font-jp); font-weight: 700; font-size: 0.9rem; color: var(--ink-soft);
+  transition: color 0.18s ease;
+}
+.nav__links a:hover { color: var(--maple-ink); }
+@media (min-width: 768px) { .nav__links { display: flex; } }
+
+/* -----------------------------------------------------------------------------
+   HERO — asymmetric editorial split
+   -------------------------------------------------------------------------- */
+.hero {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  padding-top: 6rem;   /* <= pt-24 cap */
+  padding-bottom: 3rem;
+  position: relative;
+}
+.hero__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .hero__grid { grid-template-columns: 1.35fr 0.9fr; gap: 3rem; }
+}
+.hero__eyebrow {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  color: var(--maple-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.hero__eyebrow::before {
+  content: ""; width: 1.75rem; height: 2px; background: var(--maple); display: inline-block;
+}
+.hero__name {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: clamp(3.4rem, 13vw, 8.5rem);
+  line-height: 1.0;
+  letter-spacing: 0.02em;
+  margin: 1.1rem 0 0;
+  color: var(--ink);
+}
+.hero__en {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 3.2vw, 1.9rem);
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  margin-top: 0.9rem;
+  line-height: 1.15;
+}
+.hero__en .accent { color: var(--maple-ink); font-weight: 800; }
+.hero__sub {
+  margin-top: 1.6rem;
+  max-width: 32ch;
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  line-height: 1.9;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.hero__cta { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.9rem; }
+
+/* hero media (mascot) — framed editorial arch, spot of mascot yellow */
+.hero__media { position: relative; justify-self: center; width: min(78vw, 360px); }
+.hero__media-frame {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  border-radius: 210px 210px var(--radius) var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--paper-2);
+}
+.hero__media-frame img { width: 100%; height: 100%; object-fit: cover; }
+.hero__media-cap {
+  position: absolute;
+  left: -0.5rem; bottom: 1.25rem;
+  transform: rotate(-90deg); transform-origin: left bottom;
+  font-family: var(--font-en); font-weight: 700; font-size: 0.72rem;
+  letter-spacing: 0.18em; color: var(--ink-mute);
+}
+.hero__deco { position: absolute; pointer-events: none; z-index: 2; }
+.hero__deco--leaf { width: 88px; top: -26px; right: -14px; }
+@media (min-width: 900px) { .hero__deco--leaf { width: 112px; } }
+
+/* -----------------------------------------------------------------------------
+   SECTION WRAPPERS
+   -------------------------------------------------------------------------- */
+.section { padding-block: clamp(4rem, 9vw, 7.5rem); }
+.section__head { margin-bottom: 3rem; }
+
+/* -----------------------------------------------------------------------------
+   ABOUT — editorial lead + attribute chips, then persona index (2x2)
+   -------------------------------------------------------------------------- */
+.about__intro { display: grid; grid-template-columns: 1fr; gap: 2rem; align-items: start; }
+@media (min-width: 860px) {
+  .about__intro { grid-template-columns: 1.6fr 1fr; gap: 3.5rem; }
+}
+.about__chips { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.75rem; }
+.about__aside {
+  border-top: 2px solid var(--ink);
+  padding-top: 1.25rem;
+}
+.about__aside dt {
+  font-family: var(--font-en); font-weight: 700; font-size: 0.72rem;
+  letter-spacing: 0.1em; color: var(--maple-ink); margin-top: 1rem;
+}
+.about__aside dd { margin: 0.15rem 0 0; font-weight: 700; color: var(--ink); }
+
+.persona {
+  margin-top: 4rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+@media (min-width: 720px) { .persona { grid-template-columns: 1fr 1fr; } }
+.persona__item {
+  padding: 2rem 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 720px) {
+  .persona__item:nth-child(odd) { padding-right: 2.5rem; border-right: 1px solid var(--line); }
+  .persona__item:nth-child(even) { padding-left: 2.5rem; }
+}
+.persona__no { font-family: var(--font-en); font-weight: 800; color: var(--maple-ink); font-size: 0.85rem; letter-spacing: 0.08em; }
+.persona__title { font-family: var(--font-jp); font-weight: 900; font-size: 1.35rem; margin: 0.4rem 0 0.9rem; color: var(--ink); }
+.persona__list { margin: 0; padding: 0; list-style: none; }
+.persona__list li { position: relative; padding-left: 1.1rem; color: var(--ink-soft); font-weight: 500; font-size: 0.98rem; line-height: 1.85; }
+.persona__list li::before { content: ""; position: absolute; left: 0; top: 0.85em; width: 0.42rem; height: 0.42rem; background: var(--maple); border-radius: 50%; }
+.persona__note { display: block; color: var(--ink-mute); font-size: 0.82rem; line-height: 1.7; margin-top: 0.2rem; }
+.persona__tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.9rem; }
+.persona__tag { font-family: var(--font-en); font-weight: 600; font-size: 0.72rem; color: var(--maple-ink); border: 1px solid color-mix(in oklab, var(--maple) 40%, var(--line)); padding: 0.2rem 0.6rem; border-radius: 999px; }
+
+/* -----------------------------------------------------------------------------
+   ACTIVITY — editorial index of roles (magazine contents list)
+   -------------------------------------------------------------------------- */
+.roles { border-top: 2px solid var(--ink); }
+.role {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem 2rem;
+  padding: 1.75rem 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+  transition: background-color 0.2s ease;
+}
+@media (min-width: 820px) {
+  .role { grid-template-columns: 3rem 1fr 1.1fr; padding: 2rem 0; }
+}
+.role:hover { background: color-mix(in oklab, var(--paper-2) 60%, transparent); }
+.role__no { font-family: var(--font-en); font-weight: 800; font-size: 1rem; color: var(--maple-ink); letter-spacing: 0.04em; }
+.role__title { font-family: var(--font-jp); font-weight: 900; font-size: clamp(1.3rem, 2.4vw, 1.85rem); line-height: 1.3; color: var(--ink); }
+.role__en { display: block; font-family: var(--font-en); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.04em; color: var(--maple-ink); margin-bottom: 0.35rem; }
+.role__desc { color: var(--ink-soft); font-weight: 500; font-size: 0.95rem; line-height: 1.85; }
+
+/* -----------------------------------------------------------------------------
+   WORKS — bento grid, exactly 6 cells, tutor featured
+   -------------------------------------------------------------------------- */
+.works {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.1rem;
+}
+@media (min-width: 720px) { .works { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .works { grid-template-columns: repeat(6, 1fr); } }
+
+.work {
+  position: relative;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+}
+.work:hover { transform: translateY(-4px); border-color: var(--line-strong); }
+.work__en { font-family: var(--font-en); font-weight: 600; font-size: 0.74rem; letter-spacing: 0.06em; color: var(--maple-ink); }
+.work__title { font-family: var(--font-jp); font-weight: 900; font-size: 1.2rem; line-height: 1.4; margin: 0.5rem 0 0.6rem; color: var(--ink); }
+.work__desc { color: var(--ink-soft); font-weight: 500; font-size: 0.92rem; line-height: 1.8; margin: 0; }
+.work__tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: auto; padding-top: 1.1rem; }
+.work__tag { font-family: var(--font-en); font-weight: 600; font-size: 0.72rem; color: var(--ink-mute); border: 1px solid var(--line); padding: 0.2rem 0.6rem; border-radius: 999px; }
+
+/* featured tutor: spans wide + tall with a real image */
+.work--feature { padding: 0; overflow: hidden; background: var(--paper-2); }
+@media (min-width: 720px) { .work--feature { grid-column: 1 / -1; } }
+@media (min-width: 1000px) { .work--feature { grid-column: span 4; grid-row: span 2; } }
+.work--feature .work__img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-bottom: 1px solid var(--line); }
+.work--feature .work__body { padding: 1.8rem; display: flex; flex-direction: column; flex: 1; }
+.work--feature .work__title { font-size: clamp(1.5rem, 2.6vw, 2rem); }
+.work--feature .work__desc { font-size: 1rem; }
+.work__flag {
+  display: inline-flex; align-self: flex-start; align-items: center;
+  font-family: var(--font-en); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.05em;
+  color: var(--on-maple); background: var(--maple); padding: 0.3rem 0.75rem; border-radius: 999px;
+  margin-bottom: 0.9rem;
+}
+
+/* right column beside the featured tile (each fills the 2-wide right column) */
+@media (min-width: 1000px) {
+  .work--c2 { grid-column: span 2; }
+  .work--c3 { grid-column: span 3; }
+}
+
+/* the horizontal Antigravity card spans full width under the grid rhythm */
+@media (min-width: 720px) { .work--band { grid-column: 1 / -1; } }
+.work--band .work__row { display: flex; flex-direction: column; gap: 0.6rem; }
+@media (min-width: 720px) {
+  .work--band .work__row { flex-direction: row; align-items: center; gap: 2rem; }
+  .work--band .work__tags { margin-top: 0; padding-top: 0; flex-shrink: 0; }
+}
+
+/* -----------------------------------------------------------------------------
+   FOOTER
+   -------------------------------------------------------------------------- */
+.footer { border-top: 1px solid var(--line); margin-top: clamp(4rem, 9vw, 7rem); padding-block: clamp(3.5rem, 7vw, 6rem); position: relative; overflow: hidden; }
+.footer__big { font-family: var(--font-jp); font-weight: 900; font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.25; color: var(--ink); letter-spacing: 0.02em; }
+.footer__note { margin-top: 1.25rem; max-width: 46ch; color: var(--ink-soft); font-weight: 500; line-height: 1.9; }
+.footer__meta { margin-top: 3rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 1.5rem; }
+.footer__meta span { font-family: var(--font-en); font-size: 0.78rem; letter-spacing: 0.04em; color: var(--ink-mute); }
+.footer__deco { position: absolute; right: 1rem; bottom: -0.5rem; width: 96px; opacity: 0.9; pointer-events: none; }
+@media (min-width: 768px) { .footer__deco { width: 132px; right: 3rem; } }
+
+/* -----------------------------------------------------------------------------
+   MOTION HOOKS (next phase implements anime.js; here we keep a static, complete
+   render). Elements carry data-animate="..." for the motion pass. Under
+   reduced-motion everything must remain fully visible — which it already is,
+   because this phase ships no entrance transforms.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
