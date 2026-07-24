@@ -11,6 +11,21 @@ export const footerHTML = /* html */ `
       <span>Hasegawa Akitoshi / Aki_Ha</span>
       <span>&copy; 2026 Google AI Student Community &nbsp;/&nbsp; Discord Committee</span>
     </div>
+
+    <dl class="colophon" data-animate="reveal">
+      <div>
+        <dt>発行</dt>
+        <dd>Aki_Ha</dd>
+      </div>
+      <div>
+        <dt>組版</dt>
+        <dd>Zen Kaku Gothic New / Outfit</dd>
+      </div>
+      <div>
+        <dt>発行年</dt>
+        <dd>2026</dd>
+      </div>
+    </dl>
   </div>
   <img class="footer__deco" data-parallax="0.08" src="/assets/aki_ha_deco_lemon.png" alt="" width="132" height="132" loading="lazy" />
 `

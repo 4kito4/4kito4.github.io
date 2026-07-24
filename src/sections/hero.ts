@@ -3,7 +3,9 @@ export const heroHTML = /* html */ `
   <div class="u-container hero__grid">
     <div class="hero__copy">
       <span class="hero__eyebrow" data-animate="hero-eyebrow">Google AI Student Community &nbsp;/&nbsp; Ambassador</span>
-      <h1 class="hero__name" data-animate="hero-title">長谷川 耀俊</h1>
+      <h1 class="hero__name" data-animate="hero-title">
+        <span class="hero__name-row">長谷川</span><span class="hero__name-row">耀俊</span>
+      </h1>
       <p class="hero__en" data-animate="hero-title-en">Hasegawa Akitoshi <span class="accent">/ Aki_Ha</span></p>
       <p class="hero__sub" data-animate="hero-sub">
         化学工学を専攻しながら、生成AIで身の回りの課題を解いています。「つくって、つなげる」が信条です。
@@ -15,6 +17,7 @@ export const heroHTML = /* html */ `
     </div>
 
     <div class="hero__media" data-animate="hero-media">
+      <span class="hero__vlabel" aria-hidden="true">つくって、つなげる</span>
       <img class="hero__deco hero__deco--leaf" data-parallax="0.12" src="/assets/aki_ha_deco_leaf_r.png" alt="" width="112" height="112" loading="eager" />
       <div class="hero__media-frame">
         <img src="/assets/aki_ha_hero.jpg" alt="Aki_Ha のマスコットキャラクター" width="360" height="450" loading="eager" />

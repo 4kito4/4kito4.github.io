@@ -15,7 +15,7 @@ export const aboutHTML = /* html */ `
           <span class="chip">環境都市工学部</span>
           <span class="chip">エネルギー環境・化学工学科</span>
           <span class="chip">学部3年</span>
-          <span class="chip">西日本</span>
+          <span class="chip">大阪</span>
         </div>
       </div>
 
@@ -27,7 +27,7 @@ export const aboutHTML = /* html */ `
         <dt>YEAR</dt>
         <dd>学部3年（B3）</dd>
         <dt>BASE</dt>
-        <dd>西日本</dd>
+        <dd>大阪</dd>
       </dl>
     </div>
 

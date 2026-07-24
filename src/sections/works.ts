@@ -1,7 +1,8 @@
 // Works — bento grid, exactly 6 cells, tutor platform featured with a real image.
 export const worksHTML = /* html */ `
   <div class="u-container">
-    <div class="section__head">
+    <div class="section__head section__head--spine">
+      <span class="vlabel" aria-hidden="true">制作物</span>
       <p class="section-kicker" data-animate="reveal">SELECTED WORK</p>
       <h2 class="section-h" data-animate="reveal" style="margin-top:0.5rem;">制作物</h2>
     </div>

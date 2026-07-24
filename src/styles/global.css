@@ -118,6 +118,26 @@ body {
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 
+/* Paper grain — a single fixed, pointer-events-none layer (never on a scrolling
+   container, so mobile FPS is safe). Pure CSS: an inline SVG fractal-noise tile.
+   Very low opacity so it reads as tooth of paper, not visual noise. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+}
+@media (prefers-color-scheme: dark) {
+  body::after { opacity: 0.06; mix-blend-mode: screen; }
+}
+:root[data-theme="light"] body::after { opacity: 0.04; mix-blend-mode: multiply; }
+:root[data-theme="dark"] body::after { opacity: 0.06; mix-blend-mode: screen; }
+
 /* -----------------------------------------------------------------------------
    TYPOGRAPHY — 和欧混植ルール
    ・ディスプレイ（見出し）: 和文=Zen Kaku 900 を主役に。行間を詰める(1.02–1.1)。
@@ -288,14 +308,24 @@ img { max-width: 100%; display: block; }
 .hero__eyebrow::before {
   content: ""; width: 1.75rem; height: 2px; background: var(--maple); display: inline-block;
 }
+/* Name treated as a figure: fluid type filling ~70-90% of the column, set as a
+   deliberate two-line composition (姓 / 名). Each row is a block, so the only
+   line break that can ever occur is between surname and given name — never a
+   mid-word break, and never word-break-dependent. */
 .hero__name {
   font-family: var(--font-jp);
   font-weight: 900;
-  font-size: clamp(3.4rem, 13vw, 8.5rem);
-  line-height: 1.0;
-  letter-spacing: 0.02em;
-  margin: 1.1rem 0 0;
+  font-size: clamp(3.6rem, 15vw, 9.4rem);
+  line-height: 0.96;
+  letter-spacing: 0.015em;
+  margin: 0.7rem 0 0;
   color: var(--ink);
+  font-feature-settings: "palt" 1;
+}
+.hero__name-row { display: block; }
+.hero__name-row + .hero__name-row {
+  /* the given name carries a hair of extra indent, editorial masthead move */
+  padding-left: 0.14em;
 }
 .hero__en {
   font-family: var(--font-en);
@@ -316,6 +346,34 @@ img { max-width: 100%; display: block; }
   font-weight: 500;
 }
 .hero__cta { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.9rem; }
+
+/* Vertical-rl accent: the real motto, set as a tategaki spine at the seam of the
+   split. Used sparingly (this is one of only two vertical labels on the page). */
+.hero__vlabel {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: -2.4rem;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.32em;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hero__vlabel::before {
+  content: "";
+  position: absolute;
+  top: -1.4rem; left: 50%;
+  width: 1px; height: 1rem;
+  background: var(--maple);
+  transform: translateX(-50%);
+}
+@media (min-width: 1040px) { .hero__vlabel { display: block; } }
 
 /* hero media (mascot) — framed editorial arch, spot of mascot yellow */
 .hero__media { position: relative; justify-self: center; width: min(78vw, 360px); }
@@ -468,6 +526,66 @@ img { max-width: 100%; display: block; }
 }
 
 /* -----------------------------------------------------------------------------
+   STACK STRIP — a single editorial "tools" band (the one marquee on the page).
+   Ships as static, readable markup; the P3 pass animates the track via
+   data-animate="marquee". Items are separated by a thin maple rule, never by
+   middle dots, so the metadata-dot budget stays clean.
+   -------------------------------------------------------------------------- */
+.stackstrip {
+  border-block: 1px solid var(--line);
+  background: color-mix(in oklab, var(--paper-2) 55%, transparent);
+  overflow: hidden;
+}
+.stackstrip__track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0;
+  padding-block: 1.05rem;
+}
+.stackstrip__item {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  padding-inline: 1.35rem;
+  border-left: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+.stackstrip__item:first-child { border-left: 0; }
+.stackstrip__item--accent { color: var(--maple-ink); }
+@media (min-width: 768px) {
+  .stackstrip__track { flex-wrap: nowrap; }
+  .stackstrip__item { font-size: 0.86rem; padding-inline: 1.75rem; }
+}
+
+/* Vertical section label — the second (and last) tategaki accent on the page,
+   pinned to the edge of the Works head as a magazine section spine. */
+.section__head--spine { position: relative; }
+.vlabel {
+  display: none;
+  position: absolute;
+  top: 0.1rem;
+  right: 0;
+  writing-mode: vertical-rl;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  color: var(--ink-mute);
+}
+.vlabel::after {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: -1.3rem;
+  width: 1px; height: 0.95rem;
+  background: var(--maple);
+  transform: translateX(-50%);
+}
+@media (min-width: 1040px) { .vlabel { display: block; } }
+
+/* -----------------------------------------------------------------------------
    FOOTER
    -------------------------------------------------------------------------- */
 .footer { border-top: 1px solid var(--line); margin-top: clamp(4rem, 9vw, 7rem); padding-block: clamp(3.5rem, 7vw, 6rem); position: relative; overflow: hidden; }
@@ -475,6 +593,34 @@ img { max-width: 100%; display: block; }
 .footer__note { margin-top: 1.25rem; max-width: 46ch; color: var(--ink-soft); font-weight: 500; line-height: 1.9; }
 .footer__meta { margin-top: 3rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 1.5rem; }
 .footer__meta span { font-family: var(--font-en); font-size: 0.78rem; letter-spacing: 0.04em; color: var(--ink-mute); }
+
+/* Colophon (奥付) — a printed-matter closing plate. Honest production notes,
+   laid out as columns so no middle dots are needed. */
+.colophon {
+  margin: 2.25rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+}
+@media (min-width: 640px) { .colophon { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.colophon dt {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--maple-ink);
+}
+.colophon dd {
+  margin: 0.3rem 0 0;
+  font-family: var(--font-en);
+  font-weight: 600;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
 .footer__deco { position: absolute; right: 1rem; bottom: -0.5rem; width: 96px; opacity: 0.9; pointer-events: none; }
 @media (min-width: 768px) { .footer__deco { width: 132px; right: 3rem; } }
 
