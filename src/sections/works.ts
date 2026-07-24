@@ -6,8 +6,12 @@ export const worksHTML = /* html */ `
       <p class="section-kicker" data-animate="reveal">SELECTED WORK</p>
       <h2 class="section-h" data-animate="reveal" style="margin-top:0.5rem;">制作物</h2>
     </div>
+  </div>
 
-    <div class="works">
+  <!-- Signature scroll scene: on desktop the motion layer pins this and pans the
+       6-cell track horizontally; on mobile it stays a vertical stack (reveal). -->
+  <div class="works-scene" data-works-scene>
+    <div class="works" data-works-track>
       <!-- 01 featured: 家庭教師マッチングプラットフォーム -->
       <article class="work work--feature" data-animate="work-feature">
         <img class="work__img" src="/assets/aki_ha_tutor.jpg" alt="家庭教師マッチングプラットフォームのイメージ" width="800" height="450" loading="lazy" />

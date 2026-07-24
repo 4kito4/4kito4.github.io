@@ -17,7 +17,6 @@ export const heroHTML = /* html */ `
     </div>
 
     <div class="hero__media" data-animate="hero-media">
-      <span class="hero__vlabel" aria-hidden="true">つくって、つなげる</span>
       <img class="hero__deco hero__deco--leaf" data-parallax="0.12" src="/assets/aki_ha_deco_leaf_r.png" alt="" width="112" height="112" loading="eager" />
       <div class="hero__media-frame">
         <img src="/assets/aki_ha_hero.jpg" alt="Aki_Ha のマスコットキャラクター" width="360" height="450" loading="eager" />
@@ -25,4 +24,8 @@ export const heroHTML = /* html */ `
       <span class="hero__media-cap">MASCOT / AKI_HA</span>
     </div>
   </div>
+
+  <!-- Vertical motto: pinned to the outer right gutter of the hero, clear of the
+       mascot column. Shown only >=1040px (existing spec). -->
+  <span class="hero__vlabel" aria-hidden="true">つくって、つなげる</span>
 `

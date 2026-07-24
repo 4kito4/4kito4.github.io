@@ -15,6 +15,7 @@ import { aboutHTML } from './sections/about'
 import { activityHTML } from './sections/activity'
 import { worksHTML } from './sections/works'
 import { footerHTML } from './sections/footer'
+import { initMotion } from './anim'
 
 const sections: Record<string, string> = {
   hero: heroHTML,
@@ -28,3 +29,10 @@ for (const [id, html] of Object.entries(sections)) {
   const el = document.getElementById(id)
   if (el) el.innerHTML = html
 }
+
+// FOUC guard: hide only the hero copy before fonts load, but never under
+// reduced motion (there, everything stays painted and static).
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+if (!prefersReduced) document.documentElement.classList.add('is-animating')
+
+initMotion()

@@ -347,13 +347,16 @@ body::after {
 }
 .hero__cta { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.9rem; }
 
-/* Vertical-rl accent: the real motto, set as a tategaki spine at the seam of the
-   split. Used sparingly (this is one of only two vertical labels on the page). */
+/* Vertical-rl accent: the real motto, set as a tategaki spine. Pinned to the hero's
+   outer RIGHT gutter (child of .hero, not of .hero__media) so it never overlaps the
+   mascot column. The right offset rides the page gutter: on wide viewports it sits
+   in the margin outside the 1200px content, staying clear of the mascot frame.
+   Used sparingly (one of only two vertical labels on the page). */
 .hero__vlabel {
   display: none;
   position: absolute;
   top: 50%;
-  left: -2.4rem;
+  right: max(0.9rem, calc((100vw - var(--maxw)) / 2 - 1.25rem));
   transform: translateY(-50%);
   writing-mode: vertical-rl;
   text-orientation: upright;
@@ -364,6 +367,7 @@ body::after {
   color: var(--ink-mute);
   white-space: nowrap;
   pointer-events: none;
+  z-index: 3;
 }
 .hero__vlabel::before {
   content: "";
@@ -624,13 +628,91 @@ body::after {
 .footer__deco { position: absolute; right: 1rem; bottom: -0.5rem; width: 96px; opacity: 0.9; pointer-events: none; }
 @media (min-width: 768px) { .footer__deco { width: 132px; right: 3rem; } }
 
+/* =============================================================================
+   MOTION LAYER (GSAP) — CSS side.
+   The JS layer (src/anim) drives transforms/opacity; CSS here only prepares
+   masks, the horizontal-pan track, the marquee track, hover states and the
+   FOUC guard. Everything degrades to static under reduced-motion (block below).
+   ============================================================================= */
+
+/* FOUC guard: while <html> is `.is-animating` (added before fonts load, and never
+   under reduced motion), pre-hide only the hero copy. The intro timeline writes
+   inline opacity/visibility to reveal it, then removes the class. */
+.is-animating [data-animate^="hero-"] { opacity: 0; }
+
+/* Note: SplitText (mask:'lines') wraps each line in its own overflow-clip mask
+   inline, so no CSS is needed to clip the rising characters. */
+
+/* Works — horizontal pan (desktop, JS-activated via .is-pan / .is-horizontal).
+   Off-state keeps the existing bento grid; on-state becomes a pinned flex track. */
+.works-scene {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 768px) { .works-scene { padding-inline: 2rem; } }
+
+.works-scene.is-pan {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.works.is-horizontal {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 1.5rem;
+  height: 100dvh;
+  width: max-content;
+  /* lead-in so the first card aligns with the page content column */
+  padding-inline: max(1.25rem, calc((100vw - var(--maxw)) / 2 + 2rem));
+  padding-block: 0;
+}
+.works.is-horizontal .work {
+  flex: 0 0 auto;
+  width: 40vw;
+  max-width: 460px;
+  align-self: center;
+  max-height: 74vh;
+}
+.works.is-horizontal .work--feature {
+  width: 58vw;
+  max-width: 760px;
+}
+.works.is-horizontal .work--band { width: 46vw; }
+
+/* Works hover (Scene 8) — subtle response, transform/opacity only. */
+.work__img { transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.work--feature { overflow: hidden; }
+.work--feature:hover .work__img { transform: scale(1.045); }
+.work__en { transition: color 0.22s ease, transform 0.22s ease; }
+.work:hover .work__en { color: var(--maple); transform: translateX(2px); }
+
+/* Marquee (Scene 5) — JS duplicates the track; force a single non-wrapping row. */
+.stackstrip__track.is-marquee {
+  flex-wrap: nowrap;
+  width: max-content;
+  will-change: transform;
+}
+
+/* Draggable mascot (Scene 6) — affordance: grab cursor + hint it can be thrown. */
+.hero__media-frame.is-draggable { cursor: grab; touch-action: none; }
+.hero__media-frame.is-draggable:active { cursor: grabbing; }
+
 /* -----------------------------------------------------------------------------
-   MOTION HOOKS (next phase implements anime.js; here we keep a static, complete
-   render). Elements carry data-animate="..." for the motion pass. Under
-   reduced-motion everything must remain fully visible — which it already is,
-   because this phase ships no entrance transforms.
+   REDUCED MOTION — mandatory kill switch. The JS layer already skips every scene
+   under reduce (no from-states, no Lenis, no Draggable, no marquee), so content
+   renders fully. This block neutralises any residual CSS transition/animation and
+   guarantees the pre-hide guard can never leave the hero hidden.
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .is-animating [data-animate^="hero-"] { opacity: 1 !important; }
 }
