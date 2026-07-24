@@ -15,6 +15,7 @@
 //     nearest-loaded, so one bad frame can never blank the canvas.
 // =============================================================================
 import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 /** The ScrollTrigger vars the engine understands. Kept explicit (rather than
  *  leaking gsap's `any`-typed plugin module) so callers get real type checks. */
@@ -26,6 +27,11 @@ export interface ScrubTriggerVars {
   scrub?: boolean | number
   anticipatePin?: number
   invalidateOnRefresh?: boolean
+  /** Refresh order control. Higher = refreshed (and, when pinned, pin-spacer
+   *  inserted) earlier. Set this on pins that sit ABOVE others on the page but
+   *  are created later, so their spacer lands before lower pins measure their
+   *  start. See the opening pin in src/anim/index.ts. */
+  refreshPriority?: number
 }
 
 export interface ScrubSequenceOptions {
@@ -196,6 +202,186 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
       const st = (tween as unknown as { scrollTrigger?: { kill(): void } }).scrollTrigger
       st?.kill()
       tween.kill()
+    },
+  }
+}
+
+export interface LoopSequenceOptions {
+  /** Frame URLs in display order (index 0 = the poster frame). */
+  urls: string[]
+  canvas: HTMLCanvasElement
+  /** Element whose viewport presence gates playback — the loop only spins while
+   *  this is on-screen (省電力). */
+  trigger: Element | string
+  /** Playback rate in frames/sec. 20fps over a 10fps-extracted set = 2x real
+   *  speed (a 100-frame turn loops every 5s). */
+  fps?: number
+  fit?: 'cover' | 'contain'
+}
+
+/**
+ * Autoplaying, looped image sequence (About turntable). Unlike createScrubSequence
+ * the frame index is advanced by gsap.ticker at a fixed fps — so the spin never
+ * depends on scroll position — while a ScrollTrigger toggles playback so it only
+ * runs on-screen. Loading/draw discipline matches the scrub engine: DPR-aware
+ * cover-fit, latest-frame-only rAF, nearest-loaded fallback for undecoded frames.
+ * Under reduced motion this is never constructed (the caller returns early), so
+ * the frame-0 poster is all that renders.
+ */
+export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHandle {
+  const { urls, canvas, fit = 'cover' } = opts
+  const fps = opts.fps ?? 20
+  const count = urls.length
+  const ctx = canvas.getContext('2d')
+
+  if (!ctx || count === 0) {
+    return { destroy() {} }
+  }
+
+  const images: (HTMLImageElement | undefined)[] = new Array(count)
+  const loaded: boolean[] = new Array(count).fill(false)
+  const inflight: (Promise<void> | undefined)[] = new Array(count)
+
+  let wantedFrame = 0
+  let rafId = 0
+
+  // ---- drawing (mirrors createScrubSequence) -------------------------------
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const rect = canvas.getBoundingClientRect()
+    const w = Math.max(1, Math.round(rect.width * dpr))
+    const h = Math.max(1, Math.round(rect.height * dpr))
+    if (canvas.width !== w) canvas.width = w
+    if (canvas.height !== h) canvas.height = h
+  }
+
+  function drawImage(img: HTMLImageElement) {
+    const cw = canvas.width
+    const ch = canvas.height
+    const iw = img.naturalWidth || img.width
+    const ih = img.naturalHeight || img.height
+    if (!iw || !ih) return
+    const scale = fit === 'cover' ? Math.max(cw / iw, ch / ih) : Math.min(cw / iw, ch / ih)
+    const dw = iw * scale
+    const dh = ih * scale
+    ctx!.clearRect(0, 0, cw, ch)
+    ctx!.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh)
+  }
+
+  /** Nearest ALREADY-loaded frame to `f` (searching outward), or -1 if none. */
+  function resolveFrame(f: number): number {
+    if (loaded[f]) return f
+    for (let d = 1; d < count; d++) {
+      if (f - d >= 0 && loaded[f - d]) return f - d
+      if (f + d < count && loaded[f + d]) return f + d
+    }
+    return -1
+  }
+
+  function scheduleDraw() {
+    if (rafId) return
+    rafId = requestAnimationFrame(() => {
+      rafId = 0
+      const f = resolveFrame(wantedFrame)
+      if (f < 0) return
+      drawImage(images[f]!)
+    })
+  }
+
+  // ---- loading (mirrors createScrubSequence) -------------------------------
+  function loadFrame(i: number): Promise<void> {
+    const existing = inflight[i]
+    if (existing) return existing
+    const img = new Image()
+    img.decoding = 'async'
+    const settle = new Promise<void>((resolve) => {
+      const ok = () => {
+        if (loaded[i]) return resolve()
+        images[i] = img
+        loaded[i] = true
+        if (i === wantedFrame) scheduleDraw()
+        resolve()
+      }
+      img.onload = ok
+      img.onerror = () => {
+        console.warn('[sequence] frame failed to load:', urls[i])
+        resolve()
+      }
+      img.src = urls[i]
+      img.decode?.().then(ok).catch((err) => {
+        if (img.complete && img.naturalWidth > 0) ok()
+        else console.warn('[sequence] decode rejected, awaiting load:', urls[i], err)
+      })
+    })
+    inflight[i] = settle
+    return settle
+  }
+
+  async function preloadFrom(startIndex: number) {
+    for (let i = startIndex; i < count; i++) {
+      if (!loaded[i]) await loadFrame(i)
+    }
+  }
+
+  // ---- ticker-driven playback ----------------------------------------------
+  const interval = 1 / Math.max(1, fps)
+  let frame = 0
+  let acc = 0
+  let last = 0
+  let playing = false
+
+  // gsap.ticker passes elapsed seconds; accumulate real time and step frames so
+  // playback stays 20fps regardless of the display's refresh rate.
+  function onTick(time: number) {
+    if (!playing) {
+      last = time
+      return
+    }
+    acc += time - last
+    last = time
+    let advanced = false
+    while (acc >= interval) {
+      acc -= interval
+      frame = (frame + 1) % count
+      advanced = true
+    }
+    if (advanced) {
+      wantedFrame = frame
+      scheduleDraw()
+    }
+  }
+  gsap.ticker.add(onTick)
+
+  let preloadStarted = false
+  const st = ScrollTrigger.create({
+    trigger: opts.trigger,
+    start: 'top bottom',
+    end: 'bottom top',
+    onToggle: (self: { isActive: boolean }) => {
+      playing = self.isActive
+      last = gsap.ticker.time // reset the clock so re-entry never jumps frames
+      if (self.isActive && !preloadStarted) {
+        preloadStarted = true
+        void preloadFrom(1)
+      }
+    },
+  })
+
+  const ro = new ResizeObserver(() => {
+    resize()
+    scheduleDraw()
+  })
+  ro.observe(canvas)
+
+  resize()
+  loadFrame(0).then(() => scheduleDraw())
+
+  return {
+    destroy() {
+      gsap.ticker.remove(onTick)
+      ro.disconnect()
+      if (rafId) cancelAnimationFrame(rafId)
+      st.kill()
     },
   }
 }

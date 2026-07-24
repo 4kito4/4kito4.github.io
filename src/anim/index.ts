@@ -15,9 +15,23 @@ import { SplitText } from 'gsap/SplitText'
 import { Draggable } from 'gsap/Draggable'
 import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import Lenis from 'lenis'
-import { createScrubSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
+import { createScrubSequence, createLoopSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
 
 const REVEAL_EASE = 'power3.out'
+
+// Opening -> hero handoff coordinator. The hero entrance is built paused once
+// fonts are ready, then played the instant the opening scrub crosses ~0.82 — so
+// the name is already rising underneath the paper fade and is mid-flight by the
+// time the pin releases (no dead beat between the two moments).
+const heroHandoff = {
+  play: null as (() => void) | null,
+  fired: false,
+  fire() {
+    if (this.fired) return
+    this.fired = true
+    this.play?.()
+  },
+}
 
 export function initMotion() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -171,7 +185,13 @@ export function initMotion() {
 
   // ---- Font-dependent scenes: hero intro (SplitText) + draggable mascot ----
   document.fonts.ready.then(() => {
-    heroIntro()
+    const heroTl = heroIntro() // built paused; the opening scrub triggers play
+    heroHandoff.play = () => heroTl.play()
+    // Play now if there is no opening scrub to drive the handoff, or if the user
+    // already scrolled it past the 0.82 mark while the fonts were still loading.
+    const hasOpening = !!document.querySelector('#opening .opening__canvas')
+    if (!hasOpening || heroHandoff.fired) heroTl.play()
+
     mascotDraggable(lenis)
     ScrollTrigger.refresh()
     document.documentElement.classList.remove('is-animating')
@@ -204,39 +224,46 @@ function initImageSequences(): ScrubSequenceHandle[] {
         scrollTrigger: {
           trigger: opening,
           start: 'top top',
-          end: '+=250%',
+          end: '+=140%',
           pin: true,
           scrub: 1,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          // This is the TOPMOST pin but it is created AFTER the Works pan pin
+          // (which lives inside the matchMedia scenes above). A higher
+          // refreshPriority forces this spacer to be inserted first on refresh,
+          // so the Works pin measures its start with this 140% spacer already in
+          // place — without it the two pins race and the Works pin can end up
+          // with a stale/zero start and never pin.
+          refreshPriority: 1,
         },
         onUpdate: (p) => {
-          // Paper overlay: 0 until 0.9, then 0->1 across the final 10% so the
-          // white end-frame becomes cream before the pin releases.
-          if (paper) paper.style.opacity = String(clamp01((p - 0.9) / 0.1))
+          // Paper overlay: hold at 0 until 0.78, then 0->1 by ~0.92 so the white
+          // end-frame is already cream while the hero name rises underneath.
+          if (paper) paper.style.opacity = String(clamp01((p - 0.78) / 0.14))
           // Hint pill fades out once the user has clearly started scrolling.
           if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
+          // Hand off to the hero entrance during the fade, not after pin release.
+          if (p >= 0.82) heroHandoff.fire()
         },
       }),
     )
   }
 
-  // Scene 10 — About turntable.
+  // Scene 10 — About turntable: autoplaying 2x-speed loop (20fps over a 10fps
+  // extraction = 5s/rev), driven by gsap.ticker and only spinning while the
+  // turntable is on-screen. Scrubbing was replaced because scrolling past it too
+  // fast meant the rotation was never seen.
   const about = document.querySelector<HTMLElement>('#about')
   const turnCanvas = about?.querySelector<HTMLCanvasElement>('.about__turntable-canvas')
   if (about && turnCanvas) {
+    const turntable = turnCanvas.closest<HTMLElement>('.about__turntable') ?? about
     handles.push(
-      createScrubSequence({
+      createLoopSequence({
         urls: seqUrls('/assets/seq/turn/turn_', 100),
         canvas: turnCanvas,
-        preload: 'onEnter',
-        scrollTrigger: {
-          trigger: about,
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 1,
-          invalidateOnRefresh: true,
-        },
+        trigger: turntable,
+        fps: 20,
       }),
     )
   }
@@ -255,15 +282,15 @@ function clamp01(n: number): number {
 // -----------------------------------------------------------------------------
 function heroIntro(): gsap.core.Timeline {
   const nameEl = document.querySelector<HTMLElement>('.hero__name')
-  // The hero now lives *below* the pinned opening sequence, so it is off-screen
-  // at load. Play the entrance once, when the hero scrolls into view, instead of
-  // immediately. The `.from` states render at creation (immediateRender), so the
-  // hero copy stays correctly hidden until the timeline runs — the FOUC guard can
-  // safely lift as soon as fonts are ready.
-  const heroEl = document.querySelector<HTMLElement>('.hero')
+  // The hero lives *below* the pinned opening sequence, so it is off-screen at
+  // load. Built paused and played by the opening->hero handoff at scrub ~0.82
+  // (see heroHandoff) so the entrance overlaps the paper fade instead of firing
+  // only after the pin releases. The `.from` states render at creation
+  // (immediateRender), so the hero copy stays correctly hidden until play — the
+  // FOUC guard can safely lift as soon as fonts are ready.
   const tl = gsap.timeline({
     defaults: { ease: 'power4.out' },
-    scrollTrigger: heroEl ? { trigger: heroEl, start: 'top 75%', once: true } : undefined,
+    paused: true,
   })
 
   let chars: Element[] = []
