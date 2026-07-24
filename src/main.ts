@@ -35,4 +35,10 @@ for (const [id, html] of Object.entries(sections)) {
 const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 if (!prefersReduced) document.documentElement.classList.add('is-animating')
 
-initMotion()
+try {
+  initMotion()
+} catch (err) {
+  // モーション初期化に失敗してもコンテンツは必ず見える状態に戻す
+  document.documentElement.classList.remove('is-animating')
+  console.error('[motion] init failed, falling back to static page', err)
+}
