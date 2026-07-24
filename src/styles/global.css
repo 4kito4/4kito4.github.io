@@ -702,6 +702,114 @@ body::after {
 .hero__media-frame.is-draggable:active { cursor: grabbing; }
 
 /* -----------------------------------------------------------------------------
+   OPENING (Scene 9) — full-screen scroll-scrubbed "drop" sequence, pinned above
+   the hero by the motion layer. The final drop frame is pure white; the paper
+   overlay fades in over the last 10% of the scrub so the white end-frame becomes
+   cream (--paper) before the pin releases and the hero appears underneath.
+   -------------------------------------------------------------------------- */
+.opening {
+  position: relative;
+  height: 100dvh;
+  width: 100%;
+  background: var(--paper);
+  overflow: hidden;
+}
+.opening__stage { position: absolute; inset: 0; }
+.opening__poster,
+.opening__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Poster: cover-fit; the canvas paints an identically cover-fit bitmap on top. */
+.opening__poster { object-fit: cover; }
+.opening__canvas { display: block; }
+.opening__paper {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;              /* driven inline by the motion layer, 0 -> 1 near the end */
+  pointer-events: none;
+  z-index: 1;
+}
+.opening__hint {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1.75rem, 6vh, 3.5rem);
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.opening__hint-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  background: color-mix(in oklab, var(--paper) 78%, transparent);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  animation: opening-hint-bob 2.4s ease-in-out infinite;
+}
+.opening__hint-pill::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid var(--maple);
+  border-bottom: 2px solid var(--maple);
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+@keyframes opening-hint-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+/* -----------------------------------------------------------------------------
+   ABOUT TURNTABLE (Scene 10) — small "turn" sequence in the About aside. Scrubs
+   while About crosses the viewport (no pin), so scrolling spins the mascot 360°.
+   Frame-0 poster shows until the frames preload on approach (and is the only
+   thing that ever renders under reduced motion).
+   -------------------------------------------------------------------------- */
+.about__turntable {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 1.5rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--paper-2);
+}
+.about__turntable-poster,
+.about__turntable-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.about__turntable-poster { object-fit: cover; }
+.about__turntable-canvas { display: block; }
+.about__turntable-cap {
+  position: absolute;
+  left: 0.8rem;
+  bottom: 0.6rem;
+  margin: 0;
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-mute);
+  z-index: 1;
+}
+
+/* -----------------------------------------------------------------------------
    REDUCED MOTION — mandatory kill switch. The JS layer already skips every scene
    under reduce (no from-states, no Lenis, no Draggable, no marquee), so content
    renders fully. This block neutralises any residual CSS transition/animation and
@@ -715,4 +823,9 @@ body::after {
     scroll-behavior: auto !important;
   }
   .is-animating [data-animate^="hero-"] { opacity: 1 !important; }
+
+  /* Opening sequence is a pure motion moment — drop it entirely so the page
+     begins at the hero. The About turntable collapses to its frame-0 poster
+     (the canvas is never drawn because the JS layer returns early). */
+  #opening { display: none !important; }
 }

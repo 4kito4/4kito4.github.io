@@ -19,16 +19,36 @@ export const aboutHTML = /* html */ `
         </div>
       </div>
 
-      <dl class="about__aside" data-animate="reveal">
-        <dt>UNIVERSITY</dt>
-        <dd>関西大学 環境都市工学部</dd>
-        <dt>MAJOR</dt>
-        <dd>エネルギー環境・化学工学科</dd>
-        <dt>YEAR</dt>
-        <dd>学部3年（B3）</dd>
-        <dt>BASE</dt>
-        <dd>大阪</dd>
-      </dl>
+      <div class="about__side" data-animate="reveal">
+        <!-- Turntable: the "turn" sequence scrubs as About passes the viewport,
+             so scrolling spins the mascot 360°. Frame 0 poster shows statically
+             until the motion layer preloads on approach (and under reduced motion
+             the poster is all that ever renders). -->
+        <figure class="about__turntable">
+          <img
+            class="about__turntable-poster"
+            src="/assets/seq/turn/turn_000.webp"
+            alt="Aki_Ha のマスコットが360度回転するターンテーブル"
+            width="640"
+            height="360"
+            loading="lazy"
+            decoding="async"
+          />
+          <canvas class="about__turntable-canvas" aria-hidden="true"></canvas>
+          <figcaption class="about__turntable-cap">MASCOT / 360°</figcaption>
+        </figure>
+
+        <dl class="about__aside">
+          <dt>UNIVERSITY</dt>
+          <dd>関西大学 環境都市工学部</dd>
+          <dt>MAJOR</dt>
+          <dd>エネルギー環境・化学工学科</dd>
+          <dt>YEAR</dt>
+          <dd>学部3年（B3）</dd>
+          <dt>BASE</dt>
+          <dd>大阪</dd>
+        </dl>
+      </div>
     </div>
 
     <div class="persona">

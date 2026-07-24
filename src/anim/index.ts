@@ -15,6 +15,7 @@ import { SplitText } from 'gsap/SplitText'
 import { Draggable } from 'gsap/Draggable'
 import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import Lenis from 'lenis'
+import { createScrubSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
 
 const REVEAL_EASE = 'power3.out'
 
@@ -163,6 +164,11 @@ export function initMotion() {
   // ---- Scene 5 — seamless marquee (JS duplicates the track) ----------------
   buildMarquee()
 
+  // ---- Scenes 9 & 10 — scroll-scrubbed image sequences ---------------------
+  // Both run at every breakpoint (canvas scales to its box), so they live outside
+  // the matchMedia scenes. They are already gated by the reduced-motion return.
+  initImageSequences()
+
   // ---- Font-dependent scenes: hero intro (SplitText) + draggable mascot ----
   document.fonts.ready.then(() => {
     heroIntro()
@@ -173,13 +179,92 @@ export function initMotion() {
 }
 
 // -----------------------------------------------------------------------------
+// Scenes 9 & 10 — scroll-scrubbed Canvas image sequences (see src/anim/sequence).
+//   9 (drop): full-screen opening, pinned above the hero (taste-skill §5.B). The
+//     final drop frame is pure white, so a `--paper` overlay fades in over the
+//     last 10% and hands the colour off to the cream hero seamlessly. All 120
+//     frames preload immediately but off the critical path (frame 0 paints first).
+//   10 (turn): About-section turntable, scrubbed while About crosses the viewport
+//     (no pin). Frames preload only on approach; a frame-0 poster shows until then.
+// -----------------------------------------------------------------------------
+function initImageSequences(): ScrubSequenceHandle[] {
+  const handles: ScrubSequenceHandle[] = []
+
+  // Scene 9 — drop opening.
+  const opening = document.querySelector<HTMLElement>('#opening')
+  const openingCanvas = opening?.querySelector<HTMLCanvasElement>('.opening__canvas')
+  if (opening && openingCanvas) {
+    const paper = opening.querySelector<HTMLElement>('.opening__paper')
+    const hint = opening.querySelector<HTMLElement>('.opening__hint')
+    handles.push(
+      createScrubSequence({
+        urls: seqUrls('/assets/seq/drop/drop_', 120),
+        canvas: openingCanvas,
+        preload: 'immediate',
+        scrollTrigger: {
+          trigger: opening,
+          start: 'top top',
+          end: '+=250%',
+          pin: true,
+          scrub: 1,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+        },
+        onUpdate: (p) => {
+          // Paper overlay: 0 until 0.9, then 0->1 across the final 10% so the
+          // white end-frame becomes cream before the pin releases.
+          if (paper) paper.style.opacity = String(clamp01((p - 0.9) / 0.1))
+          // Hint pill fades out once the user has clearly started scrolling.
+          if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
+        },
+      }),
+    )
+  }
+
+  // Scene 10 — About turntable.
+  const about = document.querySelector<HTMLElement>('#about')
+  const turnCanvas = about?.querySelector<HTMLCanvasElement>('.about__turntable-canvas')
+  if (about && turnCanvas) {
+    handles.push(
+      createScrubSequence({
+        urls: seqUrls('/assets/seq/turn/turn_', 100),
+        canvas: turnCanvas,
+        preload: 'onEnter',
+        scrollTrigger: {
+          trigger: about,
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: 1,
+          invalidateOnRefresh: true,
+        },
+      }),
+    )
+  }
+
+  return handles
+}
+
+function clamp01(n: number): number {
+  return n < 0 ? 0 : n > 1 ? 1 : n
+}
+
+// -----------------------------------------------------------------------------
 // Scene 1 — entrance timeline. SplitText splits the name into chars behind a line
 // mask; letters rise (yPercent 110 -> 0, power4.out). Order per brief:
 // eyebrow -> name -> romaji -> sub -> CTA -> mascot.
 // -----------------------------------------------------------------------------
 function heroIntro(): gsap.core.Timeline {
   const nameEl = document.querySelector<HTMLElement>('.hero__name')
-  const tl = gsap.timeline({ defaults: { ease: 'power4.out' } })
+  // The hero now lives *below* the pinned opening sequence, so it is off-screen
+  // at load. Play the entrance once, when the hero scrolls into view, instead of
+  // immediately. The `.from` states render at creation (immediateRender), so the
+  // hero copy stays correctly hidden until the timeline runs — the FOUC guard can
+  // safely lift as soon as fonts are ready.
+  const heroEl = document.querySelector<HTMLElement>('.hero')
+  const tl = gsap.timeline({
+    defaults: { ease: 'power4.out' },
+    scrollTrigger: heroEl ? { trigger: heroEl, start: 'top 75%', once: true } : undefined,
+  })
 
   let chars: Element[] = []
   if (nameEl) {

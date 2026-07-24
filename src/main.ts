@@ -10,6 +10,7 @@ import '@fontsource/outfit/600.css'
 import '@fontsource/outfit/700.css'
 import '@fontsource/outfit/800.css'
 
+import { openingHTML } from './sections/opening'
 import { heroHTML } from './sections/hero'
 import { aboutHTML } from './sections/about'
 import { activityHTML } from './sections/activity'
@@ -18,6 +19,7 @@ import { footerHTML } from './sections/footer'
 import { initMotion } from './anim'
 
 const sections: Record<string, string> = {
+  opening: openingHTML,
   hero: heroHTML,
   about: aboutHTML,
   activity: activityHTML,
