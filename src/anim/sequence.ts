@@ -23,7 +23,9 @@ export interface ScrubTriggerVars {
   trigger: Element | string
   start?: string
   end?: string | (() => string)
-  pin?: boolean
+  /** `true` pins the trigger; an Element/selector pins that instead (e.g. a
+   *  wrapper stage rather than the scrubbed element). */
+  pin?: boolean | Element | string
   scrub?: boolean | number
   anticipatePin?: number
   invalidateOnRefresh?: boolean
@@ -43,8 +45,14 @@ export interface ScrubSequenceOptions {
    *  trigger first scrolls into view. Frame 0 is always fetched up front. */
   preload?: 'immediate' | 'onEnter'
   fit?: 'cover' | 'contain'
-  /** Called on every scrub tick (and refresh) with progress 0..1 and the
-   *  resolved frame index. Used e.g. to fade a paper overlay near the end. */
+  /** Remaps raw scroll progress (0..1) to *frame* progress (0..1) before the
+   *  frame index is resolved. Use it to give the sequence narrative pacing —
+   *  spending more scroll distance on key beats — instead of a flat mapping.
+   *  Must be monotonic and return 0..1. Identity when omitted. */
+  progressMap?: (progress: number) => number
+  /** Called on every scrub tick (and refresh) with the RAW scroll progress 0..1
+   *  (not the remapped frame progress) and the resolved frame index. Used e.g.
+   *  to fade the opening overlay near the end. */
   onUpdate?: (progress: number, frame: number) => void
 }
 
@@ -156,7 +164,15 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
 
   // ---- scrub driver --------------------------------------------------------
   function render(p: number) {
-    wantedFrame = Math.min(count - 1, Math.max(0, Math.round(p * (count - 1))))
+    // Remap scroll progress -> frame progress so key beats get more scroll
+    // distance (narrative pacing); identity when no map is supplied.
+    const fp = opts.progressMap ? opts.progressMap(p) : p
+    wantedFrame = Math.min(count - 1, Math.max(0, Math.round(fp * (count - 1))))
+    // Jump the wanted frame to the FRONT of the load queue. During a fast scrub
+    // the sequential preload can lag behind, so without this the engine would
+    // fall back to the nearest-loaded frame and the motion would appear to skip
+    // or stall. Loading the exact wanted frame on demand keeps the scrub honest.
+    if (!loaded[wantedFrame]) void loadFrame(wantedFrame)
     scheduleDraw()
     opts.onUpdate?.(p, wantedFrame)
   }

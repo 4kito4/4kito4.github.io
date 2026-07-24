@@ -59,22 +59,27 @@ export function initMotion() {
       const { isDesktop } = ctx.conditions as { isDesktop: boolean; isMobile: boolean }
 
       // Scene 2 — hero scrub exit: name lifts + shrinks, mascot lags (parallax).
+      // The hero now lives INSIDE the pinned #intro stage, so it cannot trigger
+      // off itself (its own 'top top' resolves during the opening pin, which would
+      // run this exit while the hero is still hidden behind the overlay). Instead
+      // drive it off the ABOUT boundary — an unpinned section — so the span
+      // 'top bottom' -> 'top top' maps exactly onto the hero scrolling out AFTER
+      // the opening has released. Transform only; opacity stays owned by the intro
+      // timeline so the name can never be pinned invisible.
       const heroEl = document.querySelector('.hero')
-      if (heroEl) {
-        // Transform only. Opacity is owned by the intro timeline; animating it here
-        // too would let the scrub (whose start is captured while the FOUC guard has
-        // the name hidden) pin the name invisible at scroll-top.
+      const aboutEl = document.querySelector('#about')
+      if (heroEl && aboutEl) {
         gsap.to('.hero__name', {
           yPercent: -14,
           scale: 0.94,
           transformOrigin: 'left top',
           ease: 'none',
-          scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom top', scrub: true },
+          scrollTrigger: { trigger: aboutEl, start: 'top bottom', end: 'top top', scrub: true },
         })
         gsap.to('.hero__media', {
           yPercent: 22, // moves slower/behind the copy -> reads as parallax lag
           ease: 'none',
-          scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom top', scrub: true },
+          scrollTrigger: { trigger: aboutEl, start: 'top bottom', end: 'top top', scrub: true },
         })
       }
 
@@ -183,6 +188,38 @@ export function initMotion() {
   // the matchMedia scenes. They are already gated by the reduced-motion return.
   initImageSequences()
 
+  // ---- Reveal safety net (Fix D) ------------------------------------------
+  // The reveal / batch scenes hide their targets (autoAlpha:0 + y:30) until a
+  // ScrollTrigger fires. If a refresh races with the pin-spacer insertions
+  // (opening + works are created out of document order), a target can be left
+  // stuck hidden — content that never appears. This net guarantees that any
+  // reveal target which is within the viewport becomes visible, independent of
+  // that timing. It self-disables once nothing hidden remains, so the scroll
+  // handler costs nothing after the page has fully revealed.
+  const revealSelector =
+    '[data-animate="reveal"],[data-animate="persona-item"],[data-animate="activity-row"],' +
+    '[data-animate="work-card"],[data-animate="work-feature"]'
+  // Working set: each target is dropped once it is confirmed visible, so the
+  // scroll handler stops measuring it (no per-frame reflow once revealed).
+  let watch = gsap.utils.toArray<HTMLElement>(revealSelector)
+  const sweepReveal = () => {
+    if (watch.length === 0) return
+    const vh = window.innerHeight
+    watch = watch.filter((el) => {
+      const cs = getComputedStyle(el)
+      const hidden = cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.01
+      if (!hidden) return false // already shown by its own ScrollTrigger — stop watching
+      const r = el.getBoundingClientRect()
+      if (r.top < vh && r.bottom > 0) {
+        gsap.to(el, { autoAlpha: 1, y: 0, duration: 0.5, ease: REVEAL_EASE, overwrite: 'auto' })
+        return false // revealed here — stop watching
+      }
+      return true // still hidden and off-screen — keep watching
+    })
+  }
+  lenis.on('scroll', sweepReveal)
+  ScrollTrigger.addEventListener('refresh', sweepReveal)
+
   // ---- Font-dependent scenes: hero intro (SplitText) + draggable mascot ----
   document.fonts.ready.then(() => {
     const heroTl = heroIntro() // built paused; the opening scrub triggers play
@@ -195,6 +232,9 @@ export function initMotion() {
     mascotDraggable(lenis)
     ScrollTrigger.refresh()
     document.documentElement.classList.remove('is-animating')
+    // Backstop after layout settles: catch anything already in view that no
+    // ScrollTrigger claimed (the `refresh` above also invokes sweepReveal).
+    gsap.delayedCall(0.3, sweepReveal)
   })
 }
 
@@ -210,40 +250,56 @@ export function initMotion() {
 function initImageSequences(): ScrubSequenceHandle[] {
   const handles: ScrubSequenceHandle[] = []
 
-  // Scene 9 — drop opening.
+  // Scene 9 — drop opening. Pins the WHOLE intro stage (hero + opening overlay)
+  // and scrubs the drop sequence over the overlay; the overlay's opacity fades to
+  // 0 across the final beats so the white end-frame dissolves into the hero
+  // underneath (see #intro in index.html / .intro in global.css).
+  const intro = document.querySelector<HTMLElement>('#intro')
   const opening = document.querySelector<HTMLElement>('#opening')
   const openingCanvas = opening?.querySelector<HTMLCanvasElement>('.opening__canvas')
-  if (opening && openingCanvas) {
-    const paper = opening.querySelector<HTMLElement>('.opening__paper')
+  if (intro && opening && openingCanvas) {
     const hint = opening.querySelector<HTMLElement>('.opening__hint')
     handles.push(
       createScrubSequence({
         urls: seqUrls('/assets/seq/drop/drop_', 120),
         canvas: openingCanvas,
         preload: 'immediate',
+        // Narrative pacing (Fix A): give the collision (frames ~35-50), the
+        // recovery (~55-75) and the eye-zoom-to-white climax (~90-119) more of
+        // the scroll distance than a flat mapping would, so the story reads.
+        // Piecewise-linear control points map scroll progress -> frame progress.
+        progressMap: makeBeatMap(DROP_BEATS),
         scrollTrigger: {
-          trigger: opening,
+          trigger: intro,
           start: 'top top',
-          end: '+=140%',
-          pin: true,
+          // Restored to ~190% (Fix A): with the beat map the distance now feels
+          // measured rather than rushed. `scrub: 1` keeps the smoothing.
+          end: '+=190%',
+          // Pin the intro STAGE, not just the opening — the hero must stay put
+          // underneath so the fading overlay reveals it in place.
+          pin: intro,
           scrub: 1,
           anticipatePin: 1,
           invalidateOnRefresh: true,
           // This is the TOPMOST pin but it is created AFTER the Works pan pin
           // (which lives inside the matchMedia scenes above). A higher
           // refreshPriority forces this spacer to be inserted first on refresh,
-          // so the Works pin measures its start with this 140% spacer already in
+          // so the Works pin measures its start with this spacer already in
           // place — without it the two pins race and the Works pin can end up
           // with a stale/zero start and never pin.
           refreshPriority: 1,
         },
         onUpdate: (p) => {
-          // Paper overlay: hold at 0 until 0.78, then 0->1 by ~0.92 so the white
-          // end-frame is already cream while the hero name rises underneath.
-          if (paper) paper.style.opacity = String(clamp01((p - 0.78) / 0.14))
+          // Seamless handoff (Fix C): fade the whole opening overlay out across
+          // the final beats. By p=1 the overlay is fully transparent, so the
+          // white climax has dissolved into the cream hero rising underneath —
+          // the pin then releases on a continuous image. Held at 1 until 0.85 so
+          // the eye-zoom-to-white climax (frames ~104-119) is never covered.
+          opening.style.opacity = String(1 - clamp01((p - 0.85) / 0.15))
           // Hint pill fades out once the user has clearly started scrolling.
           if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
-          // Hand off to the hero entrance during the fade, not after pin release.
+          // Hand off to the hero entrance during the fade, so the name is already
+          // rising underneath as the overlay clears — not after the pin releases.
           if (p >= 0.82) heroHandoff.fire()
         },
       }),
@@ -273,6 +329,43 @@ function initImageSequences(): ScrubSequenceHandle[] {
 
 function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n
+}
+
+// -----------------------------------------------------------------------------
+// Beat map (Fix A) — narrative pacing for the drop sequence. Each control point
+// is [scrollProgress, frameProgress]; makeBeatMap returns a monotonic piecewise-
+// linear remap of scroll progress -> frame progress. Key story beats are given a
+// WIDER scroll span than their frame count would linearly earn, so the collision,
+// the recovery and the eye-zoom-to-white climax all get room to read. Both axes
+// must be sorted ascending and span [0,1].
+//
+// Frames (0..119): 0-35 stand -> fall, 35-50 collision (dwell), 50-55 settle,
+// 55-75 getting up (dwell), 75-90 rise into zoom, 90-119 eye zoom -> pure white.
+type BeatPoint = readonly [scroll: number, frame: number]
+const DROP_BEATS: readonly BeatPoint[] = [
+  [0.0, 0.0],
+  [0.12, 35 / 119], // brisk stand -> approach
+  [0.3, 50 / 119], // collision: 15 frames over 18% of scroll — dwell on impact
+  [0.37, 55 / 119], // quick settle
+  [0.6, 75 / 119], // getting up: 20 frames over 23% — dwell on recovery
+  [0.72, 90 / 119], // rise into the zoom
+  [1.0, 1.0], // eye zoom -> white climax: 29 frames over 28% — most room
+]
+
+function makeBeatMap(points: readonly BeatPoint[]): (p: number) => number {
+  return (p: number): number => {
+    const x = clamp01(p)
+    for (let i = 1; i < points.length; i++) {
+      const [x0, y0] = points[i - 1]
+      const [x1, y1] = points[i]
+      if (x <= x1) {
+        const span = x1 - x0
+        const t = span > 0 ? (x - x0) / span : 0
+        return y0 + (y1 - y0) * t
+      }
+    }
+    return 1
+  }
 }
 
 // -----------------------------------------------------------------------------

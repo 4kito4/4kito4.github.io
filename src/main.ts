@@ -40,7 +40,12 @@ if (!prefersReduced) document.documentElement.classList.add('is-animating')
 try {
   initMotion()
 } catch (err) {
-  // モーション初期化に失敗してもコンテンツは必ず見える状態に戻す
+  // モーション初期化に失敗してもコンテンツは必ず見える状態に戻す。
+  // opening はヒーローに被さる absolute オーバーレイなので、スクラブが動かない
+  // 以上そのままだとヒーローを恒久的に隠してしまう。フォールバックでは opening を
+  // 消してヒーローを露出させる（reduced-motion と同じ「ヒーローから始まる」挙動）。
   document.documentElement.classList.remove('is-animating')
+  const opening = document.getElementById('opening')
+  if (opening) opening.style.display = 'none'
   console.error('[motion] init failed, falling back to static page', err)
 }

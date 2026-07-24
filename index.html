@@ -24,12 +24,19 @@
     </header>
 
     <main>
-      <!-- Signature opening: full-screen scroll-scrubbed image sequence, pinned
-           above the hero by the motion layer. Decorative only (aria-hidden);
-           hidden entirely under reduced motion so the page starts at the hero. -->
-      <section id="opening" class="opening" aria-hidden="true"></section>
+      <!-- Intro stage: the hero lives UNDER the opening from the start. The motion
+           layer pins this whole stage and plays the opening sequence as an overlay;
+           near the end the overlay's opacity fades to 0 so the white end-frame
+           dissolves directly into the cream hero (already mid-entrance) with no
+           colour seam or empty beat — the pin then releases on a fully continuous
+           visual state. Under reduced motion the opening is display:none and this
+           collapses to a plain hero. -->
+      <div id="intro" class="intro">
+        <section id="hero" class="hero"></section>
+        <!-- Decorative only (aria-hidden); hidden entirely under reduced motion. -->
+        <section id="opening" class="opening" aria-hidden="true"></section>
+      </div>
 
-      <section id="hero" class="hero"></section>
       <section id="about" class="section"></section>
       <section id="activity" class="section"></section>
 

@@ -702,17 +702,27 @@ body::after {
 .hero__media-frame.is-draggable:active { cursor: grabbing; }
 
 /* -----------------------------------------------------------------------------
-   OPENING (Scene 9) — full-screen scroll-scrubbed "drop" sequence, pinned above
-   the hero by the motion layer. The final drop frame is pure white; the paper
-   overlay fades in over the last 10% of the scrub so the white end-frame becomes
-   cream (--paper) before the pin releases and the hero appears underneath.
+   INTRO STAGE + OPENING (Scene 9) — the hero and the opening sequence share one
+   pinned stage. The opening is an ABSOLUTE overlay laid directly over the hero;
+   the motion layer pins `.intro`, scrubs the "drop" sequence, then fades the whole
+   overlay's opacity 1 -> 0 across the final beats. The pure-white end-frame
+   therefore dissolves straight into the cream hero underneath (already
+   mid-entrance) — no paper overlay, no colour seam, and the pin releases on a
+   fully continuous visual. Under reduced motion `.opening` is display:none, so
+   `.intro` collapses to a plain hero.
    -------------------------------------------------------------------------- */
+.intro { position: relative; }
 .opening {
-  position: relative;
-  height: 100dvh;
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
   background: var(--paper);
   overflow: hidden;
+  /* Decorative overlay: never intercept pointer events, so the hero underneath
+     (draggable mascot, CTAs) stays interactive once the overlay has faded out. */
+  pointer-events: none;
+  z-index: 2;
 }
 .opening__stage { position: absolute; inset: 0; }
 .opening__poster,
@@ -725,14 +735,6 @@ body::after {
 /* Poster: cover-fit; the canvas paints an identically cover-fit bitmap on top. */
 .opening__poster { object-fit: cover; }
 .opening__canvas { display: block; }
-.opening__paper {
-  position: absolute;
-  inset: 0;
-  background: var(--paper);
-  opacity: 0;              /* driven inline by the motion layer, 0 -> 1 near the end */
-  pointer-events: none;
-  z-index: 1;
-}
 .opening__hint {
   position: absolute;
   left: 50%;

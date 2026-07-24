@@ -1,8 +1,9 @@
 // Opening — full-screen signature moment. A scroll-scrubbed Canvas plays the
 // "drop" sequence (mascot stands -> face-plants -> gets up -> zoom into the eye
-// highlight -> final frame is pure white). The motion layer pins this above the
-// hero and cross-fades a paper overlay in the last 10% so the white end-frame
-// hands off to the cream hero with no colour seam.
+// highlight -> final frame is pure white). The hero sits UNDERNEATH this overlay
+// from the start; near the end the motion layer fades the WHOLE overlay's opacity
+// to 0, so the white end-frame dissolves straight into the cream hero (already
+// mid-entrance) — one continuous image, no paper overlay and no colour seam.
 //
 // Fully decorative: the section is aria-hidden and carries no essential content,
 // so screen readers land straight on the hero. Under reduced motion it is
@@ -22,7 +23,6 @@ export const openingHTML = /* html */ `
       decoding="async"
     />
     <canvas class="opening__canvas"></canvas>
-    <div class="opening__paper"></div>
 
     <p class="opening__hint">
       <span class="opening__hint-pill">スクロールで始める</span>
