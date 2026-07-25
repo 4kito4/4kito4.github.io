@@ -100,22 +100,26 @@
             <a href="#activity"><span data-roll>活動</span></a>
             <a href="#works"><span data-roll>制作物</span></a>
           </div>
-          <!-- C3 sound toggle. Present in the markup from the very first paint so
-               its slot is always reserved (CLS stays 0); src/anim/sound.ts makes it
-               visible only when a sound layer actually exists — never under
-               reduced motion, and never if the motion layer failed to boot. The
-               speaker is drawn in CSS rather than as an inline SVG path because
-               this project ships no icon dependency and none is being added. -->
+          <!-- C3 sound toggle. VISIBLE FROM THE FIRST PAINT (c3.1): it used to be
+               `visibility: hidden` until src/anim/sound.ts added `.is-ready`,
+               which meant the one thing announcing that this page has sound only
+               existed once a bundle had downloaded, parsed and run. Now CSS shows
+               it unconditionally and hides it only under reduced motion, where
+               the layer genuinely does nothing. Speaker-plus-slash is the OFF
+               state and reads as off at a glance; ON swaps the slash for a small
+               three-bar equaliser. Drawn in CSS rather than as an inline SVG path
+               because this project ships no icon dependency and none is being
+               added. -->
           <button
             class="nav__sound"
             type="button"
             aria-pressed="false"
-            aria-label="サイトの効果音"
+            aria-label="効果音 オフ"
             data-sound-toggle
           >
             <span class="snd" aria-hidden="true">
               <span class="snd__cone"></span>
-              <span class="snd__wave"></span>
+              <span class="snd__eq"><span></span><span></span><span></span></span>
               <span class="snd__slash"></span>
             </span>
           </button>

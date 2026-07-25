@@ -501,14 +501,15 @@ body::after {
 
 /* -----------------------------------------------------------------------------
    C3 — SOUND TOGGLE
-   The slot is reserved from the first paint and the control is only revealed
-   (`.is-ready`, written by src/anim/sound.ts) when a sound layer really exists.
-   `visibility` rather than `display` on purpose: hidden or shown, the button
-   occupies the same 34px, so appearing costs zero layout shift and it stays out
-   of the a11y tree until it can actually do something.
+   Visible from the first paint (c3.1). It used to sit at `visibility: hidden`
+   until src/anim/sound.ts added `.is-ready`, on the reasoning that a control
+   should not exist before the layer behind it does. In practice that made the
+   one piece of UI announcing "this page has sound" wait on a 457kB bundle, and
+   readers reported the feature as missing rather than as late. The honest gate
+   is the mode where the layer really does nothing — reduced motion — and that
+   one is expressed below, in CSS, so it holds whether or not any JS runs.
    -------------------------------------------------------------------------- */
 .nav__sound {
-  visibility: hidden;
   flex: none;
   width: 34px;
   height: 34px;
@@ -522,11 +523,14 @@ body::after {
   cursor: pointer;
   transition: color 0.18s ease, border-color 0.18s ease;
 }
-.nav__sound.is-ready { visibility: visible; }
 .nav__sound:hover,
 .nav__sound[aria-pressed="true"] { color: var(--maple-ink); border-color: var(--maple-ink); }
 .nav__sound:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
 .nav__sound:active { transform: scale(0.94); }
+/* No sound layer exists under reduced motion (src/anim/sound.ts returns before
+   it builds anything), so neither does the control. This is the ONLY condition
+   that hides it. */
+@media (prefers-reduced-motion: reduce) { .nav__sound { display: none; } }
 
 /* Speaker mark, composed from two boxes and a rule. No icon dependency is being
    added to this project, and a hand-drawn SVG path would be the worse of the two
@@ -541,18 +545,35 @@ body::after {
   background: currentColor;
   clip-path: polygon(0 32%, 36% 32%, 100% 0, 100% 100%, 36% 68%, 0 68%);
 }
-.snd__wave {
+/* ON state: three bars where the wave arc used to be. The motion is the state
+   readout — "sound is on right now" is otherwise indistinguishable from "sound
+   exists" at 34px — which is the whole of its justification. Amplitude is kept
+   small and the cycle slow on purpose: this sits in a fixed header for the
+   entire visit, and anything livelier would be a distraction rather than a
+   status. Under reduced motion the bars hold their three different heights and
+   still read as an equaliser (moot in practice, since the button is display:none
+   there, but the state has to be correct if the preference changes mid-visit). */
+.snd__eq {
   position: absolute;
-  left: 10px;
+  left: 11px;
   top: 1px;
   width: 8px;
   height: 12px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  clip-path: polygon(52% 0, 100% 0, 100% 100%, 52% 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   opacity: 0;
   transition: opacity 0.18s ease;
 }
+.snd__eq > span {
+  width: 2px;
+  height: 42%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: 50% 100%;
+}
+.snd__eq > span:nth-child(2) { height: 100%; }
+.snd__eq > span:nth-child(3) { height: 66%; }
 .snd__slash {
   position: absolute;
   left: 0;
@@ -564,8 +585,17 @@ body::after {
   transform: rotate(-30deg);
   transition: opacity 0.18s ease;
 }
-.nav__sound[aria-pressed="true"] .snd__wave { opacity: 1; }
+.nav__sound[aria-pressed="true"] .snd__eq { opacity: 1; }
 .nav__sound[aria-pressed="true"] .snd__slash { opacity: 0; }
+.nav__sound[aria-pressed="true"] .snd__eq > span {
+  animation: snd-eq 1.5s ease-in-out infinite;
+}
+.nav__sound[aria-pressed="true"] .snd__eq > span:nth-child(2) { animation-delay: -0.5s; }
+.nav__sound[aria-pressed="true"] .snd__eq > span:nth-child(3) { animation-delay: -1s; }
+@keyframes snd-eq {
+  0%, 100% { transform: scaleY(0.55); }
+  50% { transform: scaleY(1); }
+}
 
 /* Invitation pill — shown once, to a reader who has never chosen, a beat after
    their first interaction. It retires itself; it is an offer, not a dialog. */
@@ -1335,6 +1365,49 @@ body::after {
   backdrop-filter: saturate(140%) blur(8px);
   -webkit-backdrop-filter: saturate(140%) blur(8px);
 }
+/* The instruction and the sound offer share one row, and wrap to two lines
+   rather than shrink: the instruction is a fixed nowrap string, so on a narrow
+   phone the chip drops underneath it instead of squeezing it. */
+.guide__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem 0.7rem;
+}
+
+/* "♪ 音ありでたのしむ" — deliberately the quieter of the two. The instruction is
+   the story beat and keeps the filled pill; this is an aside, so it is an
+   outline at a smaller size and never competes for the same read. */
+.guide__sound {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: color-mix(in oklab, var(--paper) 86%, transparent);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.55rem 1.05rem;
+  cursor: pointer;
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  transition: color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.guide__sound-note { color: var(--maple); font-size: 0.95em; }
+.guide__sound:hover { color: var(--maple-ink); border-color: var(--maple-ink); }
+.guide__sound:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
+.guide__sound:active { transform: scale(0.97); }
+/* Once scrolling starts the prompt fades to opacity 0 but stays in the layer, so
+   the chip has to stop being clickable explicitly — it is the one descendant
+   that opted back into pointer events. */
+.opening__guide.is-started .guide__sound { pointer-events: none; }
+
 /* 3s with no input: the prompt takes one soft breath so it re-enters peripheral
    vision without shouting. Removed the instant a scroll begins. */
 .guide__prompt.is-urging { animation: guide-urge 1.5s ease-in-out infinite; }

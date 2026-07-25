@@ -38,10 +38,24 @@ export const openingHTML = /* html */ `
          3. (JS) an idle micro-oscillation of frames 0-6 after 1.2s of no input,
             which makes the still frame read as a *moving* thing.
          All of it is killed the moment a real scroll starts. -->
+    <!-- C3.1: the sound offer lives HERE, beside the scroll instruction, so a
+         reader learns this page has a sound layer at the same moment they learn
+         it has a scroll. The old design only mentioned sound in a pill that
+         appeared seconds later, which is why the feature read as absent.
+         tabindex="-1" because this whole section is aria-hidden: a focusable
+         node inside aria-hidden is a trap, and the nav toggle — visible from the
+         first paint and never hidden — is the keyboard and screen-reader path to
+         the same switch. src/anim/sound.ts removes this chip outright for anyone
+         who has already chosen, before first paint, so it cannot flash. -->
     <div class="opening__guide">
       <div class="guide__prompt">
         <span class="guide__arrow" aria-hidden="true"></span>
-        <span class="guide__label">スクロールして あきはを むかえにいく</span>
+        <div class="guide__row">
+          <span class="guide__label">スクロールして あきはを むかえにいく</span>
+          <button class="guide__sound" type="button" tabindex="-1" data-sound-invite>
+            <span class="guide__sound-note" aria-hidden="true">♪</span>音ありでたのしむ
+          </button>
+        </div>
       </div>
       <div class="guide__bar">
         <span class="guide__bar-fill"></span>

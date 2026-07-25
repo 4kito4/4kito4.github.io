@@ -10,14 +10,13 @@
 //     must never be one. Every voice is an OscillatorNode or a noise buffer plus
 //     a gain envelope, which is also why the whole layer costs ~0 bytes of
 //     network and cannot block the load.
-//   • OFF BY DEFAULT, and the AudioContext is NOT CONSTRUCTED until the reader
-//     has both interacted with the page and turned sound on. A context created
-//     at load would start `suspended` under every autoplay policy anyway, so
-//     building one early buys nothing and spends an audio thread on a reader who
-//     never asked for it.
+//   • OFF BY DEFAULT, and the AudioContext is NOT CONSTRUCTED until the page
+//     holds a real USER ACTIVATION and sound is on. "Activation" is meant
+//     strictly: a wheel is not one, and treating it as one is what made the
+//     layer both silent and, later, all at once (see `activated`).
 //   • prefers-reduced-motion => this module returns immediately. No context, no
-//     listeners, no toggle. (The toggle's slot is reserved in CSS regardless, so
-//     its absence can never shift the nav — see `.nav__sound` in global.css.)
+//     listeners. The toggle is hidden by its own reduced-motion rule in CSS, so
+//     the control's visibility never depends on this file having run.
 //   • ONE gain node stands between every voice and the speakers (`master`), so
 //     the ceiling is enforced in exactly one place and cannot drift per voice.
 //
@@ -60,20 +59,91 @@ const HOVER_GAP_MS = 130
  *  but a nav anchor jumps straight past two or three of them and would fire
  *  their first-arrival cues in the same frame — three sheets turning at once. */
 const PAGE_GAP_MS = 260
+/** A few milliseconds of lead on every cue. Scheduling exactly at `currentTime`
+ *  races the audio thread, which may already have rendered past that instant —
+ *  the attack ramp then starts in the past and the front of the sound is lost.
+ *  10ms is inaudible as latency and guarantees the full envelope is heard. */
+const SCHEDULE_LEAD = 0.01
 /** How long the invitation pill stays before retiring itself. */
 const PILL_LIFE_MS = 6500
 /** Delay after the first interaction before the pill appears, so it never lands
  *  under the pointer of the click that summoned it. */
 const PILL_DELAY_MS = 900
 
+// ---- BURST SUPPRESSION (c3.1) ----------------------------------------------
+// Three independent limits, because the reported symptom ("the first thing I do
+// makes everything go off at once") had three separate ways of happening.
+/** After sound is switched on, the confirmation chime is the ONLY thing heard
+ *  for this long. Turning sound on is usually done mid-page and mid-motion, and
+ *  whatever the same gesture happened to also trigger — a hover bell under the
+ *  pointer, a page turn from the scroll that brought the toggle into reach — is
+ *  not feedback the reader asked for. One answer to one action. */
+const GRACE_MS = 800
+/** Cues arriving inside this window of each other are collapsed to the single
+ *  most important one (see PRIORITY). 60ms is under the ~80ms at which two
+ *  transients stop reading as two events, so nothing legible is being thrown
+ *  away — what is thrown away is the pile-up. */
+const GATE_MS = 60
+/** Hard ceiling on voices sounding at once. Not a clipping guard (the LEVELS
+ *  arithmetic above already makes clipping impossible) but a density one: past
+ *  this the layer stops reading as answers and starts reading as noise. */
+const MAX_VOICES = 6
+/** How long a cue stays worth playing while the output device is still opening.
+ *  A cue is an answer to something the reader just did; past this it is an
+ *  answer to something they have already moved on from, and a queue of those
+ *  arriving together is exactly the burst this whole section exists to prevent.
+ *  Comfortably above the ~71ms measured cold-start on Windows/WASAPI. */
+const STALE_MS = 140
+/** Which cue wins when several land in the same GATE_MS window. The poke is the
+ *  companion answering a direct touch and must never be the one dropped; the
+ *  hover bell is incidental by design and is always the first to go. */
+const PRIORITY: Record<SoundCue, number> = { poke: 3, chime: 2, page: 1, hover: 0 }
+
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
 let noise: AudioBuffer | null = null
 let enabled = false
-/** True once the reader has produced a real input event. The audio context is
- *  never constructed before this — autoplay compliance, stated as a gate rather
- *  than discovered as an exception. */
-let gestured = false
+/** True once the reader has produced any input at all — including a wheel. Gates
+ *  the invitation only: it is evidence someone is reading, not permission to
+ *  make audio. */
+let interacted = false
+/**
+ * True once the page holds a real USER ACTIVATION, which is a strictly smaller
+ * set of events than "the reader did something".
+ *
+ * ---- THE BUG THIS EXISTS TO KILL -------------------------------------------
+ * `wheel` is NOT an activation-triggering input event. The previous version
+ * treated it as one, so a returning reader with sound already ON would scroll,
+ * the layer would construct an AudioContext during that wheel, and Chrome would
+ * hand back a context in state `suspended` whose clock is frozen at 0. Measured
+ * on this machine, and the two consequences are exactly the two complaints:
+ *
+ *   • Nothing is audible. Every cue is scheduled against `currentTime`, which
+ *     stays 0 forever, and `resume()` sits pending because there is no
+ *     activation to unlock it. The reader scrolls the whole page in silence and
+ *     concludes the sound is still loading.
+ *   • Then it all arrives at once. The first real click resolves the resume, the
+ *     clock finally starts at 0 — and every cue banked at t=0 during all that
+ *     scrolling fires in the same instant.
+ *
+ * So the context is now built only against this flag, which is set only by
+ * events that actually grant activation, in the CAPTURE phase so it is true
+ * before any handler that might want to play something on the same gesture.
+ */
+let activated = false
+/** Suppression window opened by switching sound on (see GRACE_MS). */
+let graceUntil = 0
+/** State of the GATE_MS collapse window. */
+let lastCueAt = -Infinity
+let lastCueRank = -1
+/** Voices currently sounding, decremented by each node's own `ended` event.
+ *  Suspending the context freezes those nodes without ending them, so the count
+ *  is reset there and the decrement is clamped — otherwise a reader who switched
+ *  sound off mid-cue six times would silence the layer permanently. */
+let liveVoices = 0
+const releaseVoice = () => {
+  liveVoices = Math.max(0, liveVoices - 1)
+}
 
 function readPref(): string | null {
   try {
@@ -90,28 +160,110 @@ function writePref(key: string, value: string) {
   }
 }
 
-/** Build the graph on first real need. Returns null until sound is both on and
- *  a gesture has happened, which is what keeps the constructor off the load path. */
-function audio(): AudioContext | null {
-  if (!enabled || !gestured) return null
-  if (!ctx) {
-    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return null
-    ctx = new Ctor()
-    master = ctx.createGain()
-    master.gain.value = MASTER
-    master.connect(ctx.destination)
+/**
+ * Build the graph. Idempotent; only the first call constructs anything.
+ *
+ * Everything expensive lives here — the AudioContext itself, the master gain and
+ * the one-second noise buffer — so that `warmUp()` can pay for all of it inside
+ * the gesture that turns sound on, instead of the first cue paying for it while
+ * the reader is waiting to hear something.
+ */
+function ensureGraph(): AudioContext | null {
+  if (ctx) return ctx
+  const Ctor =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctor) return null
+  ctx = new Ctor()
+  master = ctx.createGain()
+  master.gain.value = MASTER
+  master.connect(ctx.destination)
 
-    // One second of white noise, reused by every noise voice at different
-    // playback rates and filter settings. Allocating it once keeps the poke
-    // instantaneous (no buffer fill on the click).
-    const len = Math.floor(ctx.sampleRate)
-    noise = ctx.createBuffer(1, len, ctx.sampleRate)
-    const data = noise.getChannelData(0)
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
-  }
-  if (ctx.state === 'suspended') void ctx.resume()
+  // One second of white noise, reused by every noise voice at different playback
+  // rates and filter settings. Allocating it once keeps the poke instantaneous
+  // (no buffer fill on the click).
+  const len = Math.floor(ctx.sampleRate)
+  noise = ctx.createBuffer(1, len, ctx.sampleRate)
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
   return ctx
+}
+
+/**
+ * WARM-UP — called synchronously from a gesture that carries user activation:
+ * the header toggle, the opening chip, the invitation pill, or (for a reader
+ * who already had sound on) their very first click on the page.
+ *
+ * Why this exists: constructing the context, filling the noise buffer and
+ * actually opening the output device is not free. Measured here, cold, at
+ * 96kHz: 5.5ms for the constructor, 2.9ms to fill the noise buffer, and then
+ * 71ms before the audio clock starts ticking at all, plus 40ms of WASAPI output
+ * latency. Doing it lazily meant the first cue paid every bit of that. Paying it
+ * inside a gesture the reader has just made — and is already expecting an answer
+ * to — is the difference between "turning on" and "lag".
+ *
+ * `announce` plays the confirmation chime. It is rendered directly rather than
+ * through `play()` because it is the one cue the grace window must not suppress:
+ * it IS the thing opening that window.
+ */
+function warmUp(announce: boolean): void {
+  const ac = ensureGraph()
+  if (!ac) return
+  const ready = ac.state === 'running' ? Promise.resolve() : ac.resume()
+  ready
+    .then(() => {
+      if (!enabled || !ctx || !announce) return
+      render(ctx, 'chime', ctx.currentTime + SCHEDULE_LEAD)
+    })
+    .catch(() => {
+      /* a device that refuses to start is not something to shout about */
+    })
+}
+
+/**
+ * Schedule a cue, resuming first if the clock is not running.
+ *
+ * Two bugs are fixed here at once. `resume()` used to be fired and forgotten and
+ * the envelope scheduled immediately against `currentTime` — but a suspended
+ * context's clock does not advance, so the ramps landed at t=0 and every cue
+ * banked while the device was closed came out simultaneously the moment it
+ * opened. Reading `currentTime` inside the resume callback puts each envelope in
+ * its own future; the staleness check then throws away the ones whose moment has
+ * already passed, so a wait can never turn into a queue.
+ */
+function scheduleCue(ac: AudioContext, cue: SoundCue): void {
+  if (ac.state === 'running') {
+    render(ac, cue, ac.currentTime + SCHEDULE_LEAD)
+    return
+  }
+  const askedAt = performance.now()
+  ac.resume()
+    .then(() => {
+      if (!enabled || performance.now() - askedAt > STALE_MS) return
+      render(ac, cue, ac.currentTime + SCHEDULE_LEAD)
+    })
+    .catch(() => {})
+}
+
+/**
+ * The single entry point every cue source calls. A no-op — with no side effects
+ * and no context construction — for every reason sound might not be running, so
+ * callers never have to ask.
+ */
+function play(cue: SoundCue): void {
+  if (!enabled || !activated) return
+  const now = performance.now()
+  if (now < graceUntil) return
+  // GATE: first cue in a window wins, and a more important one may still take
+  // the window off it. Everything else in those 60ms is dropped rather than
+  // queued, because a queue is what the reader hears as a burst.
+  const rank = PRIORITY[cue]
+  if (now - lastCueAt < GATE_MS && rank <= lastCueRank) return
+  lastCueAt = now
+  lastCueRank = rank
+  const ac = ensureGraph()
+  if (!ac) return
+  scheduleCue(ac, cue)
 }
 
 /** Percussive envelope. Exponential ramps only — a linear decay on a short UI
@@ -137,8 +289,10 @@ function burst(
     rate?: number
   },
 ) {
-  if (!noise || !master) return
+  if (!noise || !master || liveVoices >= MAX_VOICES) return
+  liveVoices++
   const src = ac.createBufferSource()
+  src.onended = releaseVoice
   src.buffer = noise
   src.playbackRate.value = opts.rate ?? 1
   const filter = ac.createBiquadFilter()
@@ -159,8 +313,10 @@ function tone(
   t0: number,
   opts: { freq: number; bend?: [number, number][]; peak: number; attack: number; decay: number },
 ) {
-  if (!master) return
+  if (!master || liveVoices >= MAX_VOICES) return
+  liveVoices++
   const osc = ac.createOscillator()
+  osc.onended = releaseVoice
   osc.type = 'sine'
   osc.frequency.setValueAtTime(opts.freq, t0)
   for (const [hz, at] of opts.bend ?? []) osc.frequency.exponentialRampToValueAtTime(hz, t0 + at)
@@ -171,15 +327,8 @@ function tone(
   osc.stop(t0 + opts.attack + opts.decay + 0.05)
 }
 
-/**
- * Play a cue. A no-op — with no side effects and no context construction — for
- * every reason sound might not be running, so callers never have to ask.
- */
-export function play(cue: SoundCue): void {
-  const ac = audio()
-  if (!ac) return
-  const t = ac.currentTime
-
+/** Lay one cue's nodes onto the graph at absolute time `t`. */
+function render(ac: AudioContext, cue: SoundCue, t: number): void {
   switch (cue) {
     // ぬいぐるみの「ポフッ」 + かわいい squeak. The pof is a lowpassed noise
     // thud (soft body, no attack transient); the squeak is a short sine that
@@ -223,9 +372,11 @@ export function play(cue: SoundCue): void {
 }
 
 export function initSound({ reduce }: { reduce: boolean }): void {
-  // Reduced motion: silence, and no machinery at all. The toggle keeps its
-  // reserved slot in the nav but is never made visible, so there is no control
-  // on screen promising something this mode will not do.
+  // Reduced motion: silence, and no machinery at all. The toggle is hidden by a
+  // reduced-motion rule in CSS rather than by anything here, so there is never a
+  // control on screen promising something this mode will not do — and, unlike
+  // the old `.is-ready` gate, no JS has to run for it to appear in the mode
+  // where it does work.
   if (reduce) return
 
   const toggle = document.querySelector<HTMLButtonElement>('[data-sound-toggle]')
@@ -233,33 +384,66 @@ export function initSound({ reduce }: { reduce: boolean }): void {
   // `.nav__end` — the pill hangs off the same anchor the toggle sits in, so it
   // lands under the control it is talking about and next to it in tab order.
   const pillHost = toggle.parentElement
+  // The opening's invitation (see src/sections/opening.ts). Present in the very
+  // first paint so a reader learns the page has a sound layer at the same moment
+  // they learn it has a scroll — rather than several seconds later, from a pill.
+  const chip = document.querySelector<HTMLButtonElement>('[data-sound-invite]')
 
   const pref = readPref()
   enabled = pref === 'on'
-  toggle.setAttribute('aria-pressed', String(enabled))
-  toggle.classList.add('is-ready')
 
-  const setEnabled = (next: boolean, announce: boolean) => {
+  /** Speaker-with-slash or speaker-with-equaliser, said out loud. `aria-pressed`
+   *  carries the toggle semantics; the label names the state the icon is drawing,
+   *  so the two can never disagree. */
+  const paintToggle = () => {
+    toggle.setAttribute('aria-pressed', String(enabled))
+    toggle.setAttribute('aria-label', enabled ? '効果音 オン' : '効果音 オフ')
+  }
+  paintToggle()
+
+  // A reader who has already chosen, either way, does not get asked again: the
+  // chip retires before first paint, so it never flashes. The always-visible nav
+  // toggle is the standing offer from here on.
+  if (pref !== null) chip?.remove()
+
+  const setEnabled = (next: boolean) => {
     enabled = next
-    toggle.setAttribute('aria-pressed', String(next))
+    paintToggle()
     writePref(PREF_KEY, next ? 'on' : 'off')
-    // Turning sound ON is itself an action that deserves an answer, and the
-    // chime is the layer's gentlest voice — so the control demonstrates what it
-    // just did instead of describing it.
-    if (next && announce) play('chime')
-    if (!next && ctx) void ctx.suspend()
+    if (next) {
+      // ONE answer to this action, and nothing else for GRACE_MS. Whatever the
+      // same gesture also happened to trigger — the hover bell under the pointer
+      // that just pressed the button, a page turn from the scroll that brought
+      // it into reach — is not something the reader asked to hear.
+      graceUntil = performance.now() + GRACE_MS
+      warmUp(true)
+    } else if (ctx) {
+      // Frozen nodes never fire `ended`, so the counter is squared up here.
+      liveVoices = 0
+      void ctx.suspend()
+    }
   }
 
   // Native <button>: Enter and Space already work, focus ring comes from CSS.
   toggle.addEventListener('click', () => {
     retirePill()
-    setEnabled(!enabled, true)
+    chip?.remove()
+    setEnabled(!enabled)
+  })
+
+  // ---- opening chip ---------------------------------------------------------
+  // "♪ 音ありでたのしむ", beside the scroll instruction. Same gesture, same
+  // grace window, same chime as the toggle — it is the toggle, said out loud at
+  // the one moment the reader is deciding how to take this page.
+  chip?.addEventListener('click', () => {
+    chip.remove()
+    setEnabled(true)
   })
 
   // ---- invitation pill ------------------------------------------------------
-  // Offered once, only to a reader who has never chosen, and only after they
-  // have done something — before that there is no gesture to build audio on and
-  // no evidence they are reading rather than passing through.
+  // The SECOND half of one offer, not a second offer: it exists only for a reader
+  // who scrolled past the opening chip without answering it. `offerPill` refuses
+  // outright once a preference exists, so using the chip is what retires it.
   let pill: HTMLButtonElement | null = null
   let pillTimer = 0
   function retirePill() {
@@ -291,7 +475,7 @@ export function initSound({ reduce }: { reduce: boolean }): void {
     pill = el
     el.addEventListener('click', () => {
       retirePill()
-      setEnabled(true, true)
+      setEnabled(true)
     })
     // Two frames: the element must be laid out at its from-state before the
     // class that transitions it is added, or it snaps in with no move at all.
@@ -299,14 +483,42 @@ export function initSound({ reduce }: { reduce: boolean }): void {
     pillTimer = window.setTimeout(retirePill, PILL_LIFE_MS)
   }
 
-  // ---- first gesture --------------------------------------------------------
-  const onFirstGesture = () => {
-    if (gestured) return
-    gestured = true
-    window.setTimeout(offerPill, PILL_DELAY_MS)
+  // ---- when the offer is made ----------------------------------------------
+  // With a chip on screen, the pill waits for the opening to hand off to the
+  // hero: that is the moment the reader has demonstrably left the chip behind,
+  // and re-asking any earlier would be two invitations for one question. Without
+  // a chip there is nothing to wait for, so the first sign of a reader will do.
+  if (chip) {
+    window.addEventListener('akiha:handoff', () => window.setTimeout(offerPill, PILL_DELAY_MS), {
+      once: true,
+    })
+  } else {
+    const onFirstInteraction = () => {
+      if (interacted) return
+      interacted = true
+      window.setTimeout(offerPill, PILL_DELAY_MS)
+    }
+    ;(['pointerdown', 'keydown', 'wheel', 'touchstart'] as const).forEach((type) =>
+      window.addEventListener(type, onFirstInteraction, { passive: true, once: true }),
+    )
   }
-  ;(['pointerdown', 'keydown', 'wheel', 'touchstart'] as const).forEach((type) =>
-    window.addEventListener(type, onFirstGesture, { passive: true, once: true }),
+
+  // ---- user activation ------------------------------------------------------
+  // The gate that decides whether an AudioContext may exist at all. Only events
+  // that actually grant activation are listed — `wheel` is deliberately absent,
+  // and see the `activated` declaration for the two bugs its presence caused.
+  // CAPTURE phase so the flag is already true for any handler on the same
+  // gesture that wants to play something (the companion's poke, most of all).
+  const onActivate = () => {
+    if (activated) return
+    activated = true
+    // A reader who left sound ON is owed a device that is already open by the
+    // time their first cue fires. No chime: they did not just ask for anything,
+    // and an unannounced page answering a click with a bell would be a fright.
+    if (enabled) warmUp(false)
+  }
+  ;(['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'] as const).forEach((type) =>
+    window.addEventListener(type, onActivate, { capture: true, passive: true, once: true }),
   )
 
   // ---- cue sources ----------------------------------------------------------
@@ -328,9 +540,19 @@ export function initSound({ reduce }: { reduce: boolean }): void {
     lastPage = now
     play('page')
   }
+  // ARRIVAL, NOT ATTENDANCE (c3.1). A section already sitting at or above the
+  // start line when this runs — a reload restored mid-page, a deep link, a
+  // back-navigation — has not been *arrived at*; the reader is simply already
+  // there. Its page turn is spent, so no trigger is created for it and it can
+  // never sound retroactively. Without this the initial ScrollTrigger refresh
+  // fires every passed section's onEnter inside one frame, and a reload halfway
+  // down the page opened with a stack of sheets turning at once.
+  const START_FRACTION = 0.6 // matches `start: 'top 60%'`
   ;['#about', '#activity', '#works', '#contact'].forEach((sel) => {
-    if (!document.querySelector(sel)) return
-    ScrollTrigger.create({ trigger: sel, start: 'top 60%', once: true, onEnter: turnPage })
+    const el = document.querySelector(sel)
+    if (!el) return
+    if (el.getBoundingClientRect().top < window.innerHeight * START_FRACTION) return
+    ScrollTrigger.create({ trigger: el, start: 'top 60%', once: true, onEnter: turnPage })
   })
 
   // Hover bells: fine pointers only (a coarse pointer has no hover to answer),
