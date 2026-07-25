@@ -642,17 +642,34 @@ function initImageSequences(): ScrubSequenceHandle[] {
   const about = document.querySelector<HTMLElement>('#about')
   const turnCanvas = about?.querySelector<HTMLCanvasElement>('.about__turntable-canvas')
   if (about && turnCanvas) {
-    handles.push(
-      createLoopSequence({
-        urls: seqUrls('/assets/seq/turn/turn_', 100),
-        canvas: turnCanvas,
-        // Gate on the SECTION, not the figure: the turntable is now sticky inside
-        // the About spread, so its own static offset no longer describes how long
-        // it is actually on screen. #about does.
-        trigger: about,
-        fps: 20,
-      }),
-    )
+    const figure = turnCanvas.closest<HTMLElement>('.about__turntable')
+    const turnHandle = createLoopSequence({
+      urls: seqUrls('/assets/seq/turn/turn_', 100),
+      canvas: turnCanvas,
+      // Gate on the SECTION, not the figure: the turntable is now sticky inside
+      // the About spread, so its own static offset no longer describes how long
+      // it is actually on screen. #about does.
+      trigger: about,
+      fps: 20,
+      concurrency: 6,
+      // Playback is gated on a full preload, so the figure carries a quiet
+      // "loading" mark until here.
+      onReady: () => figure?.classList.add('is-ready'),
+    })
+    handles.push(turnHandle)
+
+    // Preloading on About's approach was far too late: 100 frames cannot arrive
+    // in the moment between "About enters the viewport" and "the loop wants
+    // frame 30". Start during idle time instead, as soon as the opening curtain
+    // has lifted — deliberately AFTER the drop sequence's own gate, so the two
+    // sequences never compete for bandwidth while the curtain is still up.
+    const startTurnPreload = () => {
+      const idle = window.requestIdleCallback
+      if (typeof idle === 'function') idle(() => turnHandle.preload(), { timeout: 3000 })
+      else window.setTimeout(() => turnHandle.preload(), 600)
+    }
+    if (document.documentElement.classList.contains('is-loaded')) startTurnPreload()
+    else window.addEventListener('akiha:loaded', startTurnPreload, { once: true })
   }
 
   return handles

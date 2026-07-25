@@ -271,25 +271,46 @@ export interface LoopSequenceOptions {
    *  speed (a 100-frame turn loops every 5s). */
   fps?: number
   fit?: 'cover' | 'contain'
+  /** How many frames to fetch at once. The old loader awaited each frame in turn,
+   *  so 100 frames cost 100 SERIAL round trips — seconds of pure latency even
+   *  though the payload is tiny. A small parallel window saturates one HTTP/2
+   *  connection without starving the rest of the page. */
+  concurrency?: number
+  /** Fired once every frame has settled (loaded or permanently failed) — i.e.
+   *  when playback is allowed to begin. Used to drop the "loading" affordance. */
+  onReady?: () => void
+}
+
+export interface LoopSequenceHandle extends ScrubSequenceHandle {
+  /** Start fetching all frames now. Idempotent; safe to call from an idle
+   *  callback long before the section is anywhere near the viewport. */
+  preload(): void
 }
 
 /**
  * Autoplaying, looped image sequence (About turntable). Unlike createScrubSequence
  * the frame index is advanced by gsap.ticker at a fixed fps — so the spin never
  * depends on scroll position — while a ScrollTrigger toggles playback so it only
- * runs on-screen. Loading/draw discipline matches the scrub engine: DPR-aware
- * cover-fit, latest-frame-only rAF, nearest-loaded fallback for undecoded frames.
- * Under reduced motion this is never constructed (the caller returns early), so
- * the frame-0 poster is all that renders.
+ * runs on-screen. Draw discipline matches the scrub engine: DPR-aware cover-fit,
+ * latest-frame-only rAF. Under reduced motion this is never constructed (the
+ * caller returns early), so the frame-0 poster is all that renders.
+ *
+ * LOADING (fix): a scrub can legitimately show the nearest-loaded frame — the
+ * user is dragging the timeline and expects to land somewhere. A LOOP cannot:
+ * playing 0,1,2… against a half-filled cache makes resolveFrame snap backwards,
+ * which reads as the animation rewinding or reloading mid-spin. So playback is
+ * GATED until every frame has settled, and the frames are fetched in parallel
+ * rather than one-at-a-time. After the gate opens every index is present, so an
+ * in-loop jump is structurally impossible, not merely unlikely.
  */
-export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHandle {
+export function createLoopSequence(opts: LoopSequenceOptions): LoopSequenceHandle {
   const { urls, canvas, fit = 'cover' } = opts
   const fps = opts.fps ?? 20
   const count = urls.length
   const ctx = canvas.getContext('2d')
 
   if (!ctx || count === 0) {
-    return { destroy() {} }
+    return { preload() {}, destroy() {} }
   }
 
   const images: (HTMLImageElement | undefined)[] = new Array(count)
@@ -371,10 +392,29 @@ export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHand
     return settle
   }
 
-  async function preloadFrom(startIndex: number) {
-    for (let i = startIndex; i < count; i++) {
-      if (!loaded[i]) await loadFrame(i)
+  /** Fetch every frame with a bounded parallel window, then open the gate.
+   *  `loadFrame` resolves on error too, so a missing frame can never wedge the
+   *  gate shut — worst case the loop starts with that one index unavailable. */
+  let preloadStarted = false
+  let ready = false
+  async function preloadAll() {
+    if (preloadStarted) return
+    preloadStarted = true
+    const width = Math.max(1, Math.min(opts.concurrency ?? 6, count))
+    let next = 0
+    const worker = async () => {
+      while (next < count) {
+        const i = next++
+        if (!loaded[i]) await loadFrame(i)
+      }
     }
+    await Promise.all(Array.from({ length: width }, worker))
+    const missing = loaded.reduce((n, ok) => n + (ok ? 0 : 1), 0)
+    if (missing) console.warn(`[sequence] loop starting with ${missing} frame(s) unavailable`)
+    ready = true
+    last = gsap.ticker.time // don't let the wait accumulate into a frame burst
+    acc = 0
+    opts.onReady?.()
   }
 
   // ---- ticker-driven playback ----------------------------------------------
@@ -387,7 +427,9 @@ export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHand
   // gsap.ticker passes elapsed seconds; accumulate real time and step frames so
   // playback stays 20fps regardless of the display's refresh rate.
   function onTick(time: number) {
-    if (!playing) {
+    // The gate: hold on frame 0 until every frame is in. Keeping `last` in step
+    // means the idle wait never accumulates into a catch-up burst when it opens.
+    if (!playing || !ready) {
       last = time
       return
     }
@@ -406,7 +448,6 @@ export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHand
   }
   gsap.ticker.add(onTick)
 
-  let preloadStarted = false
   const st = ScrollTrigger.create({
     trigger: opts.trigger,
     start: 'top bottom',
@@ -414,10 +455,9 @@ export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHand
     onToggle: (self: { isActive: boolean }) => {
       playing = self.isActive
       last = gsap.ticker.time // reset the clock so re-entry never jumps frames
-      if (self.isActive && !preloadStarted) {
-        preloadStarted = true
-        void preloadFrom(1)
-      }
+      // Fallback only. The caller normally kicks preload() off during idle time
+      // right after the opening curtain lifts, so by now this is a no-op.
+      if (self.isActive) void preloadAll()
     },
   })
 
@@ -431,6 +471,9 @@ export function createLoopSequence(opts: LoopSequenceOptions): ScrubSequenceHand
   loadFrame(0).then(() => scheduleDraw())
 
   return {
+    preload() {
+      void preloadAll()
+    },
     destroy() {
       gsap.ticker.remove(onTick)
       ro.disconnect()

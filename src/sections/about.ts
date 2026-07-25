@@ -1,3 +1,7 @@
+// Turntable loading affordance lives in its own stylesheet so this fix stays
+// clear of global.css.
+import '../styles/turntable.css'
+
 // About — one magazine spread instead of two stacked blocks.
 //
 // Layout judgement (P4a): the old composition put the lead + chips in a wide left
@@ -50,6 +54,10 @@ export const aboutHTML = /* html */ `
             decoding="async"
           />
           <canvas class="about__turntable-canvas" aria-hidden="true"></canvas>
+          <!-- Playback waits for all 100 frames (see createLoopSequence): a loop
+               cannot show nearest-loaded frames without appearing to rewind. This
+               marks the wait quietly; the motion layer adds .is-ready to retire it. -->
+          <span class="about__turntable-loading" aria-hidden="true">読み込み中</span>
           <figcaption class="about__turntable-cap">AKIHA / 360°</figcaption>
         </figure>
 

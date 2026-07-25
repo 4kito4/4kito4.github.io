@@ -1,0 +1,63 @@
+/* -----------------------------------------------------------------------------
+   ABOUT TURNTABLE — loading affordance.
+   Scoped to its own file (imported from src/sections/about.ts) so the turntable
+   fix stays out of global.css.
+
+   The turntable's playback is gated on a full preload of the 100 "turn" frames,
+   which on a slow connection is a few seconds of a static poster. This gives that
+   wait a quiet voice, in the page's existing language: the same small letter-
+   spaced caption type as the figure's own caption, plus a hairline that travels
+   along the maple rule. No spinner iconography.
+   -------------------------------------------------------------------------- */
+.about__turntable-loading {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.6rem;
+  z-index: 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-mute);
+  pointer-events: none;
+  /* Fades out when the motion layer adds .is-ready to the figure. */
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+
+/* The travelling hairline: a 1px rule the width of the label, with a short maple
+   segment sweeping along it. Reads as "something is arriving", not as a widget. */
+.about__turntable-loading::after {
+  content: "";
+  display: block;
+  width: 3.25rem;
+  height: 1px;
+  background: var(--line-strong);
+  background-image: linear-gradient(90deg, transparent, var(--maple), transparent);
+  background-repeat: no-repeat;
+  background-size: 45% 100%;
+  animation: turntable-load-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes turntable-load-sweep {
+  0% { background-position: -45% 0; }
+  100% { background-position: 145% 0; }
+}
+
+/* Ready: the loop is about to start — retire the mark. */
+.about__turntable.is-ready .about__turntable-loading {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Reduced motion: the loop sequence is never constructed at all (the motion layer
+   returns early), so the poster is the finished state — there is nothing to wait
+   for and nothing should be moving. */
+@media (prefers-reduced-motion: reduce) {
+  .about__turntable-loading { display: none; }
+  .about__turntable-loading::after { animation: none; }
+}
