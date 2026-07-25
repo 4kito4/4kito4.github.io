@@ -51,6 +51,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Draggable } from 'gsap/Draggable'
 import type Lenis from 'lenis'
+import { phrase } from '../text/linebreak'
 
 export interface CompanionOptions {
   /** prefers-reduced-motion — a static companion, no behaviour at all. */
@@ -215,7 +216,12 @@ export function initCompanion({ reduce, lenis = null }: CompanionOptions): void 
   let sayTimer = 0
   function say(text: string, ms: number) {
     window.clearTimeout(sayTimer)
-    bubble.textContent = text
+    // The bubble is a 14rem-max box holding a full spoken sentence, so it wraps
+    // more often than anything else on the page. Its text is written here at
+    // runtime and replaced again on the next hover, so the class-marker pass in
+    // main.ts cannot cover it — segment the string instead. `.companion__bubble`
+    // carries the matching `keep-all / anywhere` rules statically in CSS.
+    bubble.textContent = phrase(text)
     gsap.to(bubble, { autoAlpha: 1, y: 0, duration: 0.28, ease: 'power3.out', overwrite: 'auto' })
     if (ms > 0) sayTimer = window.setTimeout(hush, ms)
   }

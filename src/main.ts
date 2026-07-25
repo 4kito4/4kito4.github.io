@@ -17,6 +17,7 @@ import { activityHTML } from './sections/activity'
 import { worksHTML } from './sections/works'
 import { footerHTML } from './sections/footer'
 import { initMotion } from './anim'
+import { applyLineBreaks } from './text/linebreak'
 
 const sections: Record<string, string> = {
   opening: openingHTML,
@@ -31,6 +32,17 @@ for (const [id, html] of Object.entries(sections)) {
   const el = document.getElementById(id)
   if (el) el.innerHTML = html
 }
+
+// -----------------------------------------------------------------------------
+// JAPANESE LINE BREAKING (p4c) — run here, and here specifically:
+//   • AFTER the markup is in the document, because BudouX reads computed styles
+//     to recognise `white-space: nowrap` (every `.nb` span) as unsplittable;
+//   • BEFORE initMotion, because SplitText and the rollover labels both consume
+//     `textContent`, and they must see the final string;
+//   • synchronously, before first paint, so no line ever re-flows -> CLS stays 0.
+// See src/text/linebreak.ts for what is segmented and what is deliberately not.
+// -----------------------------------------------------------------------------
+applyLineBreaks()
 
 // FOUC guard: hide only the hero copy before fonts load, but never under
 // reduced motion (there, everything stays painted and static).

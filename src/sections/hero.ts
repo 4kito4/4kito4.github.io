@@ -8,7 +8,7 @@ export const heroHTML = /* html */ `
       </h1>
       <p class="hero__en" data-animate="hero-title-en"><span class="nb">Hasegawa Akitoshi</span> <span class="accent nb">/ Aki_Ha</span></p>
       <p class="hero__sub" data-animate="hero-sub">
-        化学工学を専攻しながら、生成AIで身の回りの課題を<span class="nb">解いています。</span><span class="nb">「つくって、つなげる」が信条です。</span>
+        化学工学を専攻しながら、生成AIで<span class="nb">身の回りの課題を</span><span class="nb">解いています。</span><span class="nb">「つくって、つなげる」が信条です。</span>
       </p>
       <div class="hero__cta" data-animate="hero-cta">
         <a href="#works" class="btn btn--primary"><span data-roll>制作物を見る</span> <span aria-hidden="true">&rarr;</span></a>

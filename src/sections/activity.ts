@@ -12,7 +12,7 @@ export const activityHTML = /* html */ `
     <div class="section__head">
       <h2 class="section-h" data-animate="split-h">活動</h2>
       <p class="lead" data-animate="reveal" style="margin-top:0.75rem;max-width:52ch;">
-        全国から選ばれた31名のコミュニティアンバサダーの一人として、複数の委員会で運営に関わっています。
+        全国から選ばれた31名のコミュニティアンバサダーの<span class="nb">一人として、</span>複数の委員会で運営に関わっています。
       </p>
     </div>
 
@@ -63,7 +63,7 @@ export const activityHTML = /* html */ `
         </span>
         <div class="role__title">
           <span class="role__en">Founder</span>
-          西日本AI <span class="nb">Co-Innovation委員会</span> 創設・運営
+          西日本AI <span class="nb">Co-Innovation委員会</span> <span class="nb">創設・運営</span>
         </div>
         <p class="role__desc">
           西日本の学生がつながり、一緒にAI活用を試せる場をゼロから立ち上げました。地域を越えた共創を目指しています。

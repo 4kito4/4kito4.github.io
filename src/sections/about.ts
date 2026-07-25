@@ -23,7 +23,7 @@ export const aboutHTML = /* html */ `
     <div class="about__grid">
       <div class="about__lead">
         <p class="lead" data-animate="reveal">
-          はじめまして、<span class="nb">長谷川耀俊（Aki_Ha）です。</span>関西大学で化学工学を学びながら、生成AIを使った開発と<span class="nb">コミュニティづくりに</span><span class="nb">打ち込んでいます。</span>「専攻の知識 × AI」で身の回りの課題を解くのが好きで、講義のスキマ時間もだいたい<span class="nb">何かをつくっています。</span>
+          はじめまして、<span class="nb">長谷川耀俊（Aki_Ha）です。</span><span class="nb">関西大学で</span>化学工学を学びながら、生成AIを使った開発と<span class="nb">コミュニティづくりに</span><span class="nb">打ち込んでいます。</span>「専攻の<span class="nb">知識 × AI」で</span><span class="nb">身の回りの課題を</span>解くのが好きで、講義のスキマ時間もだいたい<span class="nb">何かをつくっています。</span>
         </p>
         <div class="about__chips" data-animate="reveal">
           <span class="chip chip--accent">関西大学</span>

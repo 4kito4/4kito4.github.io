@@ -17,6 +17,7 @@ import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import Lenis from 'lenis'
 import { createScrubSequence, createLoopSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
 import { initCompanion } from './companion'
+import { initDossier } from './dossier'
 
 const REVEAL_EASE = 'power3.out'
 
@@ -74,6 +75,9 @@ export function initMotion() {
   // as a still portrait with no behaviour at all (see initCompanion).
   if (reduce) {
     safely('companion (static)', () => initCompanion({ reduce: true }))
+    // The dossier panels are CONTENT, not a motion scene: under reduce they open
+    // and close instantly, with no tween and no Lenis (there is none) to stop.
+    safely('works dossier (static)', () => initDossier({ reduce: true }))
     return
   }
 
@@ -141,6 +145,13 @@ export function initMotion() {
 
   // ---- C1 — the resident companion (see src/anim/companion.ts) -------------
   safely('companion', () => initCompanion({ reduce: false, lenis }))
+
+  // ---- P4C — the works dossier panels (see src/anim/dossier.ts) ------------
+  // Registered after the Works pin so the 詳しく buttons already exist, and
+  // isolated like every other optional scene: a failure here must not cost the
+  // pan, the companion or the reveals. It needs `lenis` to freeze the page while
+  // a sheet is open, and never calls ScrollTrigger.refresh().
+  safely('works dossier', () => initDossier({ reduce: false, lenis }))
 
   // ---- Font-dependent scenes: hero intro (SplitText) + hero mascot sway ----
   // This runs in a promise callback, so a throw in here would be an unhandled

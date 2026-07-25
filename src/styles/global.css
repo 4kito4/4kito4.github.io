@@ -117,14 +117,18 @@ body {
   overflow-x: hidden;
 }
 
-/* Line-break control (p4b).
+/* Line-break control (p4b, extended p4c).
+   Four layers, all kept — each one does something the others cannot:
+   ・BudouX (.bdx, p4c) — the structural fix. src/text/linebreak.ts segments every
+     Japanese copy block at 文節 boundaries and inserts U+200B there; the rules on
+     .bdx below turn those into the ONLY places a line may break. This is what
+     removes 語中折れ across the board instead of one string at a time.
    ・text-wrap: pretty on running copy — pulls the last line up so a sentence
      cannot end on a 1-2 character orphan (「〜が信条で / す。」).
    ・text-wrap: balance on headings — evens the line lengths instead of filling
      greedily, which is what fixes 「家庭教師マッチングプラットフォ / ーム」.
-   ・.nb marks a 文節 (or a fixed noun) that must never be split. Used only where
-     the automatic rules above are not enough; every instance is verified to be
-     narrower than its container at 375px. */
+   ・.nb marks a 文節 (or a fixed noun) that must never be split. Still honoured:
+     BudouX reads a nowrap element as context-only and never splits inside it. */
 .lead,
 .hero__sub,
 .role__desc,
@@ -143,6 +147,18 @@ body {
 .footer__big { text-wrap: balance; }
 
 .nb { white-space: nowrap; }
+
+/* BudouX wrap rules. `keep-all` deletes the browser's default "break between any
+   two kana" opportunities so only the inserted U+200B boundaries remain;
+   `anywhere` is the safety valve — a phrase wider than its column breaks rather
+   than overflowing it. The class is written by src/text/linebreak.ts (and is
+   also BudouX's own already-processed marker); .companion__bubble carries the
+   same rules statically because its text is replaced at runtime. */
+.bdx,
+.companion__bubble {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
 
 ::selection { background: var(--maple); color: var(--on-maple); }
 
@@ -606,6 +622,54 @@ body::after {
   padding: 0.26rem 0.65rem; border-radius: 999px;
 }
 
+/* "詳しく" — the dossier affordance (p4c).
+   Set as a text link with the page's own maple hairline vocabulary rather than a
+   third pill: the card already carries a status pill and tech tags, and a fourth
+   filled shape would read as the card's primary action. Left-aligned and pinned
+   directly under the description, i.e. the far corner from the companion's
+   bottom-right speech bubble. The mark is a CSS plus (two 1px bars, matching
+   .persona__rule / .vlabel::after), not an icon — the page ships no icon set. */
+.work__more {
+  align-self: flex-start;
+  margin-top: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--maple-ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--maple) 42%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.work__more:hover { border-color: var(--maple); transform: translateY(-1px); }
+.work__more:active { transform: translateY(0); }
+.work__more:focus-visible { outline: 2px solid var(--maple); outline-offset: 3px; border-radius: 2px; }
+.work__more-mark {
+  position: relative;
+  width: 0.6rem;
+  height: 0.6rem;
+  flex-shrink: 0;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.work__more-mark::before,
+.work__more-mark::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+.work__more-mark::after { transform: translateY(-50%) rotate(90deg); }
+.work__more:hover .work__more-mark { transform: rotate(90deg); }
+
 /* right column beside the featured tile (each fills the 2-wide right column) */
 @media (min-width: 1000px) {
   .work--c2 { grid-column: span 2; }
@@ -716,14 +780,19 @@ body::after {
 
 /* Colophon (奥付) — a printed-matter closing plate. Honest production notes,
    laid out as columns so no middle dots are needed. */
+/* One column below 480px (p4c): at 320px a two-up colophon leaves ~128px per
+   cell, and the 組版 entry ("Zen Kaku Gothic New") is wider than that — the only
+   overflow the width sweep found. The entries are three short pairs; stacking
+   them costs nothing. */
 .colophon {
   margin: 2.25rem 0 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.1rem 1.5rem;
   border-top: 1px solid var(--line);
   padding-top: 1.5rem;
 }
+@media (min-width: 480px) { .colophon { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 640px) { .colophon { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .colophon dt {
   font-family: var(--font-jp);
@@ -1305,6 +1374,259 @@ body::after {
 .companion.is-static.is-away { opacity: 0; }
 
 /* -----------------------------------------------------------------------------
+   WORKS DOSSIER PANEL (p4c) — a sheet of paper laid over the spread.
+
+   Not a floating card and not a full-screen takeover: it is another page of the
+   same printed object, so it keeps the paper surface, the hairline rules and the
+   maple accent, and it stops short of the viewport edges so the world underneath
+   stays visible around it. On >=900px the body becomes a two-column spread
+   (reading column + plate column) — the same grammar as the About section, which
+   is what makes it read as part of this document rather than a generic modal.
+
+   LAYERING. z-index 58 sits above the companion (55) and the nav (50), and BELOW
+   the paper grain (60) and the cursor (70) on purpose: the grain runs over the
+   sheet too, so the panel is inside the paper world instead of pasted on top.
+
+   NO CLS. Fixed, `hidden` until opened, and the scroll lock is Lenis-side only
+   (see src/anim/dossier.ts) — the scrollbar never disappears, so nothing shifts.
+   -------------------------------------------------------------------------- */
+.dossier {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.75rem, 3vw, 2.5rem);
+}
+.dossier[hidden] { display: none; }
+
+.dossier__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--ink) 46%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dossier__scrim {
+    background: color-mix(in oklab, var(--ink) 78%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.dossier__sheet {
+  position: relative;
+  width: min(100%, 720px);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 32px 80px color-mix(in oklab, var(--ink) 34%, transparent);
+}
+.dossier__sheet:focus { outline: none; }
+.dossier__inner { padding: clamp(1.5rem, 4vw, 3rem); }
+
+.dossier__head {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 1.1rem;
+  margin-bottom: 2rem;
+  padding-right: 3rem; /* clear of the close button */
+}
+.dossier__eyebrow {
+  margin: 0;
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: var(--maple-ink);
+}
+.dossier__title {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-jp);
+  font-weight: 900;
+  /* The 5.2vw middle term is what keeps 「NPUローカルAI環境」 on ONE line at
+     320px: it is a single phrase with no boundary inside it, so if it does not
+     fit it can only break into a two-character orphan. */
+  font-size: clamp(1.25rem, 5.2vw, 2.25rem);
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+/* Close: the one control on the sheet, sized to a comfortable target and given
+   the same hairline mark language as the 詳しく plus (rotated into an ×). */
+.dossier__close {
+  position: absolute;
+  top: clamp(0.85rem, 2.5vw, 1.4rem);
+  right: clamp(0.85rem, 2.5vw, 1.4rem);
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  background: var(--paper-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.dossier__close:hover { background: var(--paper-3); border-color: var(--ink-mute); }
+.dossier__close:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
+.dossier__close-mark { position: relative; width: 0.95rem; height: 0.95rem; }
+.dossier__close-mark::before,
+.dossier__close-mark::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 1.5px;
+  background: currentColor;
+}
+.dossier__close-mark::before { transform: translateY(-50%) rotate(45deg); }
+.dossier__close-mark::after { transform: translateY(-50%) rotate(-45deg); }
+
+/* ONE reading column, not a two-up spread.
+   The obvious move was prose left / figures right, and it was wrong: a CSS grid
+   shares rows between its columns, so every figure left a dead cell beside it and
+   the sheet grew a column of empty paper. Worse, linearising that on mobile puts
+   the whole set of figures after the whole set of prose, which separates the
+   実測 heading from the bar chart it introduces. A single measured column keeps
+   each figure directly under the sentence that sets it up, at every width. */
+.dossier__content { display: grid; gap: 1.4rem; align-content: start; }
+
+.dossier__lead {
+  margin: 0;
+  max-width: 40ch;
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  line-height: 2;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.dossier__h {
+  margin: 0.9rem 0 0;
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+.dossier__p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.9;
+  text-wrap: pretty;
+}
+.dossier__list { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+.dossier__list li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+.dossier__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.85em;
+  width: 0.55rem;
+  height: 1.5px;
+  background: var(--maple);
+}
+.dossier__dl { margin: 0; display: grid; gap: 0.9rem; }
+.dossier__dl dt {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--maple-ink);
+}
+.dossier__dl dd {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+/* A real example of the Bot's output, set as an aside in the reading voice. */
+.dossier__example {
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  background: var(--paper-2);
+  border-left: 2px solid var(--maple);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.92rem;
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+.dossier__link {
+  justify-self: start;
+  display: inline-grid;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--ink);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.dossier__link:hover { border-color: var(--maple); background: var(--paper-2); }
+.dossier__link:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
+.dossier__link-host {
+  font-family: var(--font-en);
+  font-weight: 600;
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+  color: var(--maple-ink);
+  word-break: break-all;
+}
+
+/* Figures. The SVGs are token-coloured, so light/dark needs no second drawing.
+   `min-width` puts a legibility floor under the type inside the viewBox; the
+   container is the scroll owner in the rare case a 320px viewport goes below it,
+   so the page body itself can never scroll sideways. */
+.dossier__fig {
+  margin: 0;
+  padding: 1.1rem;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.dossier__fig svg {
+  display: block;
+  width: 100%;
+  min-width: 268px;
+  max-width: 400px;
+  height: auto;
+  margin-inline: auto;
+  font-family: var(--font-jp);
+}
+.dossier__fig--wide svg { max-width: 460px; }
+.dossier__cap {
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.75;
+  color: var(--ink-mute);
+  font-weight: 500;
+  text-wrap: pretty;
+}
+
+/* -----------------------------------------------------------------------------
    REDUCED MOTION — mandatory kill switch. The JS layer already skips every scene
    under reduce (no from-states, no Lenis, no Draggable, no marquee), so content
    renders fully. This block neutralises any residual CSS transition/animation and
@@ -1346,6 +1668,15 @@ body::after {
 
   /* Custom cursor is never constructed under reduce (initMotion returns first). */
   .cursor { display: none !important; }
+
+  /* Dossier: the panel is CONTENT, so it still opens under reduce — it is just
+     set visible with no tween at all (see initDossier). Belt rules so nothing is
+     left mid-transform if the media query flips after init. */
+  .dossier__sheet,
+  .dossier__scrim { transform: none !important; }
+  .work__more,
+  .work__more-mark,
+  .work__more:hover .work__more-mark { transform: none !important; }
 
   /* Companion: initCompanion builds the still `.is-static` variant under reduce
      and attaches no tweens, no Draggable and no listeners at all. These are belt
