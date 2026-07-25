@@ -38,10 +38,31 @@
     <header class="nav">
       <nav class="u-container nav__inner" aria-label="メインナビゲーション">
         <a href="#hero" class="nav__mark"><span data-roll>AKI_HA</span></a>
-        <div class="nav__links">
-          <a href="#about"><span data-roll>自己紹介</span></a>
-          <a href="#activity"><span data-roll>活動</span></a>
-          <a href="#works"><span data-roll>制作物</span></a>
+        <div class="nav__end">
+          <div class="nav__links">
+            <a href="#about"><span data-roll>自己紹介</span></a>
+            <a href="#activity"><span data-roll>活動</span></a>
+            <a href="#works"><span data-roll>制作物</span></a>
+          </div>
+          <!-- C3 sound toggle. Present in the markup from the very first paint so
+               its slot is always reserved (CLS stays 0); src/anim/sound.ts makes it
+               visible only when a sound layer actually exists — never under
+               reduced motion, and never if the motion layer failed to boot. The
+               speaker is drawn in CSS rather than as an inline SVG path because
+               this project ships no icon dependency and none is being added. -->
+          <button
+            class="nav__sound"
+            type="button"
+            aria-pressed="false"
+            aria-label="サイトの効果音"
+            data-sound-toggle
+          >
+            <span class="snd" aria-hidden="true">
+              <span class="snd__cone"></span>
+              <span class="snd__wave"></span>
+              <span class="snd__slash"></span>
+            </span>
+          </button>
         </div>
       </nav>
     </header>

@@ -18,6 +18,7 @@ import Lenis from 'lenis'
 import { createScrubSequence, createLoopSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
 import { initCompanion } from './companion'
 import { initDossier } from './dossier'
+import { initSound } from './sound'
 
 const REVEAL_EASE = 'power3.out'
 
@@ -32,6 +33,9 @@ const heroHandoff = {
     if (this.fired) return
     this.fired = true
     this.play?.()
+    // C3: the opening has landed. Published as an event rather than a direct
+    // call so the sound layer stays the only module that knows about sound.
+    window.dispatchEvent(new CustomEvent('akiha:handoff'))
   },
 }
 
@@ -68,6 +72,14 @@ export function initMotion() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   gsap.registerPlugin(ScrollTrigger, SplitText, Draggable, InertiaPlugin)
+
+  // ---- C3 — the sound layer (see src/anim/sound.ts) ------------------------
+  // Registered before the reduced-motion return ON PURPOSE: under reduce
+  // initSound's own first act is to bail out, and routing it through the same
+  // call site in both modes is what makes that guarantee readable here rather
+  // than implied by an omission. It builds no AudioContext and attaches no
+  // listeners until the reader turns sound on.
+  safely('sound', () => initSound({ reduce }))
 
   // Reduced motion: leave everything static and visible. `.is-animating` was never
   // added under reduce, so the hero is fully painted already. The companion is

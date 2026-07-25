@@ -1,4 +1,12 @@
 // Footer — editorial closing. Discord activity noted; no external SNS links.
+import { observedISO, observedStamp } from '../realtime'
+
+// C4: the visit is stamped once, at module evaluation — i.e. the moment the
+// reader arrived. Baking it into the markup here (rather than writing it into
+// the DOM after paint) is what keeps the colophon free of layout shift: the
+// value is present in the very first paint, at its final width.
+const VISIT = new Date()
+
 export const footerHTML = /* html */ `
   <div class="u-container">
     <h2 class="footer__big" data-animate="reveal">
@@ -32,6 +40,14 @@ export const footerHTML = /* html */ `
       <div>
         <dt>発行年</dt>
         <dd>2026</dd>
+      </div>
+      <!-- C4 現実同期: the sheet records when it was read. It states a fact and
+           makes no claim beyond it — nothing here is "only available today". -->
+      <div>
+        <dt>観測日</dt>
+        <dd>
+          <time class="nb" datetime="${observedISO(VISIT)}">${observedStamp(VISIT)}</time>
+        </dd>
       </div>
     </dl>
   </div>

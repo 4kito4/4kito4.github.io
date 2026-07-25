@@ -18,6 +18,15 @@ import { worksHTML } from './sections/works'
 import { footerHTML } from './sections/footer'
 import { initMotion } from './anim'
 import { applyLineBreaks } from './text/linebreak'
+import { applyTimeOfDay } from './realtime'
+
+// -----------------------------------------------------------------------------
+// C4 現実同期 — the paper takes the light of the hour it is being read in.
+// First statement in the file after the imports, and synchronous: the tint is a
+// theme decision, so it has to be in place before anything paints. It writes one
+// attribute on <html>; the four bands live in global.css (see `--tod-`).
+// -----------------------------------------------------------------------------
+applyTimeOfDay()
 
 const sections: Record<string, string> = {
   opening: openingHTML,

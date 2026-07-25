@@ -17,10 +17,11 @@
    imagery, never as a CSS accent, so the single-accent rule holds.
    -------------------------------------------------------------------------- */
 :root {
-  /* surfaces */
-  --paper: #f4eee1;        /* cream paper background            */
-  --paper-2: #ece2cf;      /* raised panel / inset              */
-  --paper-3: #e4d8c0;      /* deeper inset (chips, wells)       */
+  /* surfaces — the *-base tokens are the palette; --paper/-2/-3 below are the
+     palette after the C4 time-of-day correction (which is 0% by default). */
+  --paper-base: #f4eee1;   /* cream paper background            */
+  --paper-2-base: #ece2cf; /* raised panel / inset              */
+  --paper-3-base: #e4d8c0; /* deeper inset (chips, wells)       */
   --line: #d7c9ac;         /* hairline rules                    */
   --line-strong: #c4b291;  /* stronger rules                    */
 
@@ -57,14 +58,45 @@
   --radius-sm: 10px;
 
   color-scheme: light dark;
+
+  /* ---------------------------------------------------------------------------
+     C4 — TIME-OF-DAY PAPER CORRECTION (docs/CONCEPT.md §C4)
+
+     src/realtime.ts writes ONE attribute, `data-tod`, on <html>. Everything else
+     is here: each band names a tint and how much of it enters the paper, and the
+     three paper surfaces are derived from their base in a single place. Because
+     the derivation lives on :root and only the *inputs* are overridden, a theme
+     switch (media query or the manual [data-theme] override) re-derives the
+     paper for the theme that actually won — the tint is never a colour computed
+     for the other mode.
+
+     Amounts are the largest that keep every ink/paper pair which passes WCAG AA
+     at the base palette still passing AA in all four bands, both themes. The
+     binding pair is --maple-ink on --paper-3 in light: 4.69 base -> 4.52 night.
+     (--ink-mute on light paper sits at 4.13 in the base palette and is not made
+     meaningfully worse by any band: 4.16 morning / 3.98 night.)
+     ------------------------------------------------------------------------ */
+  --tod-tint: var(--paper-base);  /* day: mixing paper into paper = no change */
+  --tod-amt: 0%;
+
+  --paper: color-mix(in oklab, var(--paper-base) calc(100% - var(--tod-amt)), var(--tod-tint));
+  --paper-2: color-mix(in oklab, var(--paper-2-base) calc(100% - var(--tod-amt)), var(--tod-tint));
+  --paper-3: color-mix(in oklab, var(--paper-3-base) calc(100% - var(--tod-amt)), var(--tod-tint));
 }
+
+/* Light-theme bands. Morning lifts and cools the sheet by a hair; evening warms
+   it; night dims and warms it. All of it is a few percent — the reader should
+   register the room, not the effect. */
+:root[data-tod="morning"] { --tod-tint: #f2f8ff; --tod-amt: 6%; }
+:root[data-tod="evening"] { --tod-tint: #e8a866; --tod-amt: 4%; }
+:root[data-tod="night"] { --tod-tint: #6b543a; --tod-amt: 2.5%; }
 
 /* Dark mode: same editorial world, warmed sumi surfaces + brightened maple */
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #17130d;
-    --paper-2: #201a12;
-    --paper-3: #2a2217;
+    --paper-base: #17130d;
+    --paper-2-base: #201a12;
+    --paper-3-base: #2a2217;
     --line: #362c1e;
     --line-strong: #4a3d29;
 
@@ -76,21 +108,37 @@
     --maple-ink: #f0895e;
     --on-maple: #1a1206;
   }
+
+  /* Dark-theme bands. The directions are the same story (cooler in the morning,
+     warmer in the evening, dimmer at night) but the tints have to be chosen
+     against a dark base, so they are their own values rather than the light
+     ones reused. Tightest pair here: --ink-mute on --paper-3, 4.64 -> 4.54. */
+  :root[data-tod="morning"] { --tod-tint: #6f7f92; --tod-amt: 2%; }
+  :root[data-tod="evening"] { --tod-tint: #7a4a22; --tod-amt: 3%; }
+  :root[data-tod="night"] { --tod-tint: #060402; --tod-amt: 6%; }
 }
 
 /* Manual overrides win in both directions */
 :root[data-theme="light"] {
-  --paper: #f4eee1; --paper-2: #ece2cf; --paper-3: #e4d8c0;
+  --paper-base: #f4eee1; --paper-2-base: #ece2cf; --paper-3-base: #e4d8c0;
   --line: #d7c9ac; --line-strong: #c4b291;
   --ink: #211b13; --ink-soft: #4f4535; --ink-mute: #7d7160;
   --maple: #c7461c; --maple-ink: #a5380f; --on-maple: #fbf3e6;
 }
 :root[data-theme="dark"] {
-  --paper: #17130d; --paper-2: #201a12; --paper-3: #2a2217;
+  --paper-base: #17130d; --paper-2-base: #201a12; --paper-3-base: #2a2217;
   --line: #362c1e; --line-strong: #4a3d29;
   --ink: #efe6d4; --ink-soft: #cbbda3; --ink-mute: #988a72;
   --maple: #e86b3c; --maple-ink: #f0895e; --on-maple: #1a1206;
 }
+/* The manual override has to carry its band tints too, otherwise a reader who
+   forces light while the OS is dark gets the dark-base tint on light paper. */
+:root[data-theme="light"][data-tod="morning"] { --tod-tint: #f2f8ff; --tod-amt: 6%; }
+:root[data-theme="light"][data-tod="evening"] { --tod-tint: #e8a866; --tod-amt: 4%; }
+:root[data-theme="light"][data-tod="night"] { --tod-tint: #6b543a; --tod-amt: 2.5%; }
+:root[data-theme="dark"][data-tod="morning"] { --tod-tint: #6f7f92; --tod-amt: 2%; }
+:root[data-theme="dark"][data-tod="evening"] { --tod-tint: #7a4a22; --tod-amt: 3%; }
+:root[data-theme="dark"][data-tod="night"] { --tod-tint: #060402; --tod-amt: 6%; }
 
 /* -----------------------------------------------------------------------------
    BASE
@@ -322,6 +370,107 @@ body::after {
 }
 .nav__links a:hover { color: var(--maple-ink); }
 @media (min-width: 768px) { .nav__links { display: flex; } }
+
+/* Right-hand group: the links keep their right edge and the sound toggle sits
+   outside them. `position: relative` anchors the invitation pill, which hangs
+   below the bar without being in anyone's flow. */
+.nav__end { position: relative; display: flex; align-items: center; gap: 1.5rem; }
+
+/* -----------------------------------------------------------------------------
+   C3 — SOUND TOGGLE
+   The slot is reserved from the first paint and the control is only revealed
+   (`.is-ready`, written by src/anim/sound.ts) when a sound layer really exists.
+   `visibility` rather than `display` on purpose: hidden or shown, the button
+   occupies the same 34px, so appearing costs zero layout shift and it stays out
+   of the a11y tree until it can actually do something.
+   -------------------------------------------------------------------------- */
+.nav__sound {
+  visibility: hidden;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;   /* same pill scale as .work__tag / .chip */
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.nav__sound.is-ready { visibility: visible; }
+.nav__sound:hover,
+.nav__sound[aria-pressed="true"] { color: var(--maple-ink); border-color: var(--maple-ink); }
+.nav__sound:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
+.nav__sound:active { transform: scale(0.94); }
+
+/* Speaker mark, composed from two boxes and a rule. No icon dependency is being
+   added to this project, and a hand-drawn SVG path would be the worse of the two
+   honest options at this size. */
+.snd { position: relative; display: block; width: 19px; height: 14px; }
+.snd__cone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 14px;
+  background: currentColor;
+  clip-path: polygon(0 32%, 36% 32%, 100% 0, 100% 100%, 36% 68%, 0 68%);
+}
+.snd__wave {
+  position: absolute;
+  left: 10px;
+  top: 1px;
+  width: 8px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  clip-path: polygon(52% 0, 100% 0, 100% 100%, 52% 100%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.snd__slash {
+  position: absolute;
+  left: 0;
+  top: calc(50% - 0.75px);
+  width: 19px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(-30deg);
+  transition: opacity 0.18s ease;
+}
+.nav__sound[aria-pressed="true"] .snd__wave { opacity: 1; }
+.nav__sound[aria-pressed="true"] .snd__slash { opacity: 0; }
+
+/* Invitation pill — shown once, to a reader who has never chosen, a beat after
+   their first interaction. It retires itself; it is an offer, not a dialog. */
+.soundpill {
+  position: absolute;
+  top: calc(100% + 16px);
+  right: 0;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--paper) 92%, var(--ink));
+  color: var(--ink);
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 10px 26px color-mix(in oklab, var(--ink) 16%, transparent);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.soundpill.is-in { opacity: 1; transform: none; pointer-events: auto; }
+.soundpill:hover { border-color: var(--maple-ink); color: var(--maple-ink); }
+.soundpill:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
 
 /* -----------------------------------------------------------------------------
    HERO — asymmetric editorial split
@@ -792,8 +941,10 @@ body::after {
   border-top: 1px solid var(--line);
   padding-top: 1.5rem;
 }
+/* Four entries since C4 added 観測日, so the steps are 1 -> 2 -> 4: a 3-column
+   grid would leave the last entry alone on its own row at every width between. */
 @media (min-width: 480px) { .colophon { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 640px) { .colophon { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .colophon { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .colophon dt {
   font-family: var(--font-jp);
   font-weight: 700;
