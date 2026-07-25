@@ -33,9 +33,10 @@ export const worksHTML = /* html */ `
         <div class="work__body">
           <div class="work__flags">
             <span class="work__flag">いちばん力を入れています</span>
-            <!-- Honest status, deliberately quiet: the service is still being
-                 built, so the card states that rather than linking out to it. -->
-            <span class="work__status">開発中</span>
+            <!-- Honest status, deliberately quiet: the service already runs and
+                 is being improved, so the card says so rather than linking out
+                 to it while the live site is being worked on. -->
+            <span class="work__status">アップデート中</span>
           </div>
           <span class="work__en">Matching Platform</span>
           <!-- BudouX reads this compound as ONE phrase, so it inserts no
