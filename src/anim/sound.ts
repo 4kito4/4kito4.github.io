@@ -23,18 +23,24 @@
 //
 // ---- LEVELS ------------------------------------------------------------------
 // Peaks are declared per voice as a fraction of full scale BEFORE the master,
-// which then multiplies everything by MASTER (0.05, about -26 dBFS). Absolute
+// which then multiplies everything by MASTER (0.17, about -15.4 dBFS). Absolute
 // peaks are therefore:
 //
-//   poke  "pof"    0.70 -> 0.035   the loudest thing here, and still very quiet
-//   poke  squeak   0.20 -> 0.010
-//   page  turn     0.50 -> 0.025
-//   hover bell     0.15 -> 0.0075  (two partials summed)
-//   chime          0.21 -> 0.0105  (two partials summed)
+//   poke  "pof"    0.70 -> 0.119    -18.5 dBFS  the loudest thing here
+//   poke  squeak   0.20 -> 0.034    -29.4 dBFS
+//   page  turn     0.50 -> 0.085    -21.4 dBFS
+//   hover bell     0.15 -> 0.0255   -31.9 dBFS  (two partials summed)
+//   chime          0.21 -> 0.0357   -28.9 dBFS  (two partials summed)
 //
-// Even with every voice sounding at once the bus stays near 0.09 absolute, so
-// clipping is arithmetically impossible and no limiter is needed to make that
-// true. Changing MASTER is the only way to change the ceiling.
+// The relative balance is deliberate and survives the master change untouched:
+// the hover bell stays ~13 dB under the poke, because a bell that competes with
+// the companion's own voice stops being incidental and starts being a UI beep.
+//
+// Sounding EVERY voice in the same instant sums to 1.76 before the master, so
+// the bus peaks at 1.76 * 0.17 = 0.299 — a factor of 3.3 below full scale.
+// Clipping is therefore arithmetically impossible and no limiter is needed to
+// make that true. Changing MASTER is the only way to change the ceiling, and
+// anything up to 0.56 would still be clip-free if this is ever raised again.
 // =============================================================================
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -47,7 +53,7 @@ const PREF_KEY = 'akiha:sound'
 const ASKED_KEY = 'akiha:sound-asked'
 
 /** The single ceiling for the whole layer (see LEVELS above). */
-const MASTER = 0.05
+const MASTER = 0.17
 /** Minimum gap between two hover bells, so a swept cursor cannot machine-gun. */
 const HOVER_GAP_MS = 130
 /** Minimum gap between two page turns. Reading crosses sections seconds apart,
