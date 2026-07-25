@@ -40,12 +40,26 @@ const openingLifecycle = {
   guardScrollPosition: null as (() => void) | null,
 }
 
-/** Run an optional scene without letting its failure take the page down with it. */
-function safely(fn: () => void) {
+// -----------------------------------------------------------------------------
+// SCENE ISOLATION (c1.1)
+//
+// main.ts wraps initMotion() in a catch that hides #opening and drops the page to
+// a static fallback. That is the right behaviour for a broken FOUNDATION (Lenis,
+// the plugin registration, the pinned intro) — but it is far too blunt for one
+// bad scene: a TDZ crash inside the opening sequence's onUpdate took out the
+// companion, the Works pin and every reveal along with it.
+//
+// So every scene that the rest of the page does not depend on is registered
+// through `safely`. One scene failing now costs exactly that scene, and says so
+// in the console instead of silently vanishing. The foundation is deliberately
+// left UNGUARDED: if Lenis or the plugin registration fails there is no partial
+// page worth showing, and main.ts's fallback is the correct outcome.
+// -----------------------------------------------------------------------------
+function safely(label: string, fn: () => void) {
   try {
     fn()
   } catch (err) {
-    console.error('[motion] scene failed', err)
+    console.error(`[motion] scene failed: ${label}`, err)
   }
 }
 
@@ -59,7 +73,7 @@ export function initMotion() {
   // still built — the concept's resident character is content, not motion — but
   // as a still portrait with no behaviour at all (see initCompanion).
   if (reduce) {
-    safely(() => initCompanion({ reduce: true }))
+    safely('companion (static)', () => initCompanion({ reduce: true }))
     return
   }
 
@@ -70,6 +84,112 @@ export function initMotion() {
   gsap.ticker.lagSmoothing(0)
 
   // ---- Breakpoint-aware scroll scenes -------------------------------------
+  // The Works pin lives in here, so it is registered as its own unit: it must
+  // survive a failure anywhere else, and everything after it must survive a
+  // failure in here.
+  safely('breakpoint scenes', initBreakpointScenes)
+
+  // ---- Scene 5 — seamless marquee (JS duplicates the track) ----------------
+  safely('marquee', buildMarquee)
+
+  // ---- Scenes 9 & 10 — scroll-scrubbed image sequences ---------------------
+  // Both run at every breakpoint (canvas scales to its box), so they live outside
+  // the matchMedia scenes. They are already gated by the reduced-motion return.
+  //
+  // Isolated for a concrete reason: this is where the c1.1 TDZ crash lived, and
+  // the opening overlay's three retirement guards are exactly the machinery that
+  // has to keep working when something in here goes wrong.
+  safely('image sequences', initImageSequences)
+
+  // ---- Reveal safety net (Fix D) ------------------------------------------
+  // The reveal / batch scenes hide their targets (autoAlpha:0 + y:30) until a
+  // ScrollTrigger fires. If a refresh races with the pin-spacer insertions
+  // (opening + works are created out of document order), a target can be left
+  // stuck hidden — content that never appears. This net guarantees that any
+  // reveal target which is within the viewport becomes visible, independent of
+  // that timing. It self-disables once nothing hidden remains, so the scroll
+  // handler costs nothing after the page has fully revealed.
+  const revealSelector =
+    '[data-animate="reveal"],[data-animate="persona-item"],[data-animate="activity-row"],' +
+    '[data-animate="work-card"],[data-animate="work-feature"]'
+  // Working set: each target is dropped once it is confirmed visible, so the
+  // scroll handler stops measuring it (no per-frame reflow once revealed).
+  let watch = gsap.utils.toArray<HTMLElement>(revealSelector)
+  const sweepReveal = () => {
+    if (watch.length === 0) return
+    const vh = window.innerHeight
+    watch = watch.filter((el) => {
+      const cs = getComputedStyle(el)
+      const hidden = cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.01
+      if (!hidden) return false // already shown by its own ScrollTrigger — stop watching
+      const r = el.getBoundingClientRect()
+      if (r.top < vh && r.bottom > 0) {
+        gsap.to(el, { autoAlpha: 1, y: 0, duration: 0.5, ease: REVEAL_EASE, overwrite: 'auto' })
+        return false // revealed here — stop watching
+      }
+      return true // still hidden and off-screen — keep watching
+    })
+    sweepHeadings()
+  }
+  lenis.on('scroll', sweepReveal)
+  ScrollTrigger.addEventListener('refresh', sweepReveal)
+
+  // ---- Pointer-driven scenes (no font dependency) --------------------------
+  safely('rollover labels', initRollover)
+  safely('magnetic hover', initMagnetic)
+  safely('custom cursor', initCustomCursor)
+
+  // ---- C1 — the resident companion (see src/anim/companion.ts) -------------
+  safely('companion', () => initCompanion({ reduce: false, lenis }))
+
+  // ---- Font-dependent scenes: hero intro (SplitText) + hero mascot sway ----
+  // This runs in a promise callback, so a throw in here would be an unhandled
+  // rejection: main.ts's catch has long since returned and CANNOT see it. That
+  // matters more than anywhere else on the page, because `.is-animating` is still
+  // pre-hiding the hero copy at this point — a crash before the unhide would
+  // leave the reader on a permanently blank hero with no fallback. So every scene
+  // is isolated, and the unhide + refresh run unconditionally afterwards.
+  document.fonts.ready.then(() => {
+    safely('hero intro', () => {
+      const heroTl = heroIntro() // built paused; the opening scrub triggers play
+      heroHandoff.play = () => heroTl.play()
+      // Play now if there is no opening scrub to drive the handoff, or if the user
+      // already scrolled it past the 0.82 mark while the fonts were still loading.
+      const hasOpening = !!document.querySelector('#opening .opening__canvas')
+      if (!hasOpening || heroHandoff.fired) heroTl.play()
+    })
+
+    // SplitText measures glyph boxes, so both of these must wait for the webfonts.
+    safely('split headings', splitHeadings)
+    safely('motto glow', mottoGlow)
+    safely('hero mascot sway', heroMascotSway)
+
+    // Unconditional: whatever failed above, the hero copy MUST become visible and
+    // the triggers MUST be measured against the final layout.
+    safely('refresh', () => ScrollTrigger.refresh())
+    document.documentElement.classList.remove('is-animating')
+
+    // Backstop after layout settles: catch anything already in view that no
+    // ScrollTrigger claimed (the `refresh` above also invokes sweepReveal), and
+    // re-check the opening against the (possibly restored) scroll position.
+    gsap.delayedCall(0.3, () => {
+      safely('reveal backstop', () => {
+        sweepReveal()
+        openingLifecycle.guardScrollPosition?.()
+      })
+    })
+  })
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// BREAKPOINT-AWARE SCROLL SCENES (hero exit, reveals, the Works pan, parallax).
+//
+// Extracted from initMotion in c1.1 so it can be registered as one isolated unit
+// (see `safely`). It closes over nothing from the caller — every scene resolves
+// its own targets from the DOM — so lifting it out is a pure move.
+// -----------------------------------------------------------------------------
+function initBreakpointScenes() {
   const mm = gsap.matchMedia()
   mm.add(
     {
@@ -203,86 +323,8 @@ export function initMotion() {
       }
     },
   )
-
-  // ---- Scene 5 — seamless marquee (JS duplicates the track) ----------------
-  buildMarquee()
-
-  // ---- Scenes 9 & 10 — scroll-scrubbed image sequences ---------------------
-  // Both run at every breakpoint (canvas scales to its box), so they live outside
-  // the matchMedia scenes. They are already gated by the reduced-motion return.
-  initImageSequences()
-
-  // ---- Reveal safety net (Fix D) ------------------------------------------
-  // The reveal / batch scenes hide their targets (autoAlpha:0 + y:30) until a
-  // ScrollTrigger fires. If a refresh races with the pin-spacer insertions
-  // (opening + works are created out of document order), a target can be left
-  // stuck hidden — content that never appears. This net guarantees that any
-  // reveal target which is within the viewport becomes visible, independent of
-  // that timing. It self-disables once nothing hidden remains, so the scroll
-  // handler costs nothing after the page has fully revealed.
-  const revealSelector =
-    '[data-animate="reveal"],[data-animate="persona-item"],[data-animate="activity-row"],' +
-    '[data-animate="work-card"],[data-animate="work-feature"]'
-  // Working set: each target is dropped once it is confirmed visible, so the
-  // scroll handler stops measuring it (no per-frame reflow once revealed).
-  let watch = gsap.utils.toArray<HTMLElement>(revealSelector)
-  const sweepReveal = () => {
-    if (watch.length === 0) return
-    const vh = window.innerHeight
-    watch = watch.filter((el) => {
-      const cs = getComputedStyle(el)
-      const hidden = cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.01
-      if (!hidden) return false // already shown by its own ScrollTrigger — stop watching
-      const r = el.getBoundingClientRect()
-      if (r.top < vh && r.bottom > 0) {
-        gsap.to(el, { autoAlpha: 1, y: 0, duration: 0.5, ease: REVEAL_EASE, overwrite: 'auto' })
-        return false // revealed here — stop watching
-      }
-      return true // still hidden and off-screen — keep watching
-    })
-    sweepHeadings()
-  }
-  lenis.on('scroll', sweepReveal)
-  ScrollTrigger.addEventListener('refresh', sweepReveal)
-
-  // ---- Pointer-driven scenes (no font dependency) --------------------------
-  initRollover()
-  initMagnetic()
-  initCustomCursor()
-
-  // ---- C1 — the resident companion (see src/anim/companion.ts) -------------
-  // Isolated behind `safely` because it is the newest and most stateful scene on
-  // the page: if it ever throws, the rest of the motion layer (and therefore the
-  // whole document) must still come up.
-  safely(() => initCompanion({ reduce: false, lenis }))
-
-  // ---- Font-dependent scenes: hero intro (SplitText) + hero mascot sway ----
-  document.fonts.ready.then(() => {
-    const heroTl = heroIntro() // built paused; the opening scrub triggers play
-    heroHandoff.play = () => heroTl.play()
-    // Play now if there is no opening scrub to drive the handoff, or if the user
-    // already scrolled it past the 0.82 mark while the fonts were still loading.
-    const hasOpening = !!document.querySelector('#opening .opening__canvas')
-    if (!hasOpening || heroHandoff.fired) heroTl.play()
-
-    // SplitText measures glyph boxes, so both of these must wait for the webfonts.
-    splitHeadings()
-    mottoGlow()
-
-    heroMascotSway()
-    ScrollTrigger.refresh()
-    document.documentElement.classList.remove('is-animating')
-    // Backstop after layout settles: catch anything already in view that no
-    // ScrollTrigger claimed (the `refresh` above also invokes sweepReveal), and
-    // re-check the opening against the (possibly restored) scroll position.
-    gsap.delayedCall(0.3, () => {
-      sweepReveal()
-      openingLifecycle.guardScrollPosition?.()
-    })
-  })
 }
 
-// -----------------------------------------------------------------------------
 // Scenes 9 & 10 — scroll-scrubbed Canvas image sequences (see src/anim/sequence).
 //   9 (drop): full-screen opening, pinned above the hero (taste-skill §5.B). The
 //     final drop frame is pure white, so a `--paper` overlay fades in over the
@@ -405,6 +447,27 @@ function initImageSequences(): ScrubSequenceHandle[] {
     // frame range is legible as motion, and the pause between repeats keeps it
     // from becoming ambient noise.
     const TEASER = { delayMs: 1200, repeatMs: 4000, toFrame: 10, halfDur: 0.8 }
+    // ---- TDZ GUARD (c1.1) ----------------------------------------------------
+    // DECLARED HERE, ASSIGNED BELOW. This must stay a `let` initialised to null
+    // above every closure that touches it, and it must NOT be turned back into
+    // `const dropHandle = createScrubSequence(...)`.
+    //
+    // Why: when the page loads with a restored scroll position (scrollY > 0), the
+    // ScrollTrigger created *inside* createScrubSequence runs init -> refresh ->
+    // revert -> update SYNCHRONOUSLY, which fires the sequence's own onUpdate
+    // before createScrubSequence has returned. That onUpdate calls stopGuidance(),
+    // which reads this binding — so with a `const` assigned from the call itself
+    // the binding is still in its temporal dead zone and the read throws
+    // `ReferenceError: Cannot access 'dropHandle' before initialization`. The
+    // throw escaped all the way to main.ts's outermost catch, which retired the
+    // ENTIRE motion layer to the static fallback (no companion, no Works pin) on
+    // every scroll-restored reload. Loading from the top of the page never
+    // triggered it, which is why it survived review.
+    //
+    // With `let ... = null` the same synchronous call is a harmless no-op: the
+    // guidance still shuts down, and the frame the setFrame() call would have
+    // painted is the frame the scrub is about to paint anyway.
+    let dropHandle: ScrubSequenceHandle | null = null
     let started = false
     let teaser: gsap.core.Timeline | null = null
     let nudgeTimer = 0
@@ -459,7 +522,9 @@ function initImageSequences(): ScrubSequenceHandle[] {
     if (document.documentElement.classList.contains('is-loaded')) armGuidance()
     else window.addEventListener('akiha:loaded', armGuidance, { once: true })
 
-    const dropHandle = createScrubSequence({
+    // Assignment only — the binding is declared above the guidance closures on
+    // purpose (see the TDZ GUARD note).
+    dropHandle = createScrubSequence({
       urls: seqUrls('/assets/seq/drop/drop_', 120),
       canvas: openingCanvas,
       preload: 'immediate',
