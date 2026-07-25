@@ -1,11 +1,28 @@
 // Footer — editorial closing. Discord activity noted; no external SNS links.
-import { observedISO, observedStamp } from '../realtime'
+import { BAND_LABEL, bandFor, observedISO, observedStamp } from '../realtime'
 
 // C4: the visit is stamped once, at module evaluation — i.e. the moment the
 // reader arrived. Baking it into the markup here (rather than writing it into
 // the DOM after paint) is what keeps the colophon free of layout shift: the
 // value is present in the very first paint, at its final width.
 const VISIT = new Date()
+
+// C4.1: the live band, rendered into the chips' initial state so the colophon
+// arrives at its final geometry in the first paint (no post-load class writes,
+// no shift). The preview handler in src/realtime.ts takes it from there.
+const LIVE_BAND = bandFor(VISIT.getHours())
+const BANDS = ['morning', 'day', 'evening', 'night'] as const
+
+const bandChips = BANDS.map((band) => {
+  const isLive = band === LIVE_BAND
+  return /* html */ `
+        <button
+          class="tod-chip${isLive ? ' is-now' : ''}"
+          type="button"
+          data-tod-set="${band}"
+          aria-pressed="${isLive}"
+        >${BAND_LABEL[band]}${isLive ? '<span class="tod-chip__now">（観測時刻）</span>' : ''}</button>`
+}).join('')
 
 export const footerHTML = /* html */ `
   <div class="u-container">
@@ -50,6 +67,24 @@ export const footerHTML = /* html */ `
         </dd>
       </div>
     </dl>
+
+    <!-- C4.1: what the observation time is actually wired to. The sentence
+         states the rule; the chips let the reader press a band and watch the
+         paper move, which is the only way a few percent of one colour can be
+         noticed at all. The choice is not stored: a reload returns the sheet to
+         the real hour.
+
+         Deliberately carries no data-animate, unlike the colophon above it:
+         this row exists because the mechanism was invisible, so it must not
+         itself depend on a scroll animation firing in order to be read. -->
+    <div class="tod">
+      <p class="tod__note">
+        <span class="nb">紙の色は観測時刻に連動します。</span>
+        <span class="nb">いまの紙は<span data-tod-name>${BAND_LABEL[LIVE_BAND]}</span>の光。</span>
+      </p>
+      <div class="tod__chips" role="group" aria-label="紙の色を時間帯で試す">${bandChips}
+      </div>
+    </div>
   </div>
   <img class="footer__deco" data-parallax="0.08" src="/assets/aki_ha_deco_lemon.png" alt="" width="132" height="132" loading="lazy" />
 `

@@ -40,12 +40,61 @@ export function bandFor(hour: number): TimeBand {
   return 'night'
 }
 
+/** How each band is named in the colophon and on the preview chips. */
+export const BAND_LABEL: Record<TimeBand, string> = {
+  morning: '朝',
+  day: '昼',
+  evening: '夕',
+  night: '夜',
+}
+
 /** The single write. Call before first paint so the paper is never re-tinted
  *  under the reader (and so this can never contribute a shift). */
 export function applyTimeOfDay(now: Date = new Date()): TimeBand {
   const band = bandFor(now.getHours())
   document.documentElement.dataset.tod = band
+  initBandPreview()
   return band
+}
+
+// -----------------------------------------------------------------------------
+// C4.1 — MAKING THE LINK LEGIBLE
+//
+// The correction is a few percent of one colour, which is exactly as loud as it
+// should be — and that is also why nobody could tell what 観測日 was doing there.
+// So the colophon says the sentence out loud, and offers the four bands as chips
+// you can press to see the paper actually move.
+//
+// The preview is DELIBERATELY not persisted: it writes `data-tod` and nothing
+// else, so a reload puts the sheet back to the real hour. It is a demonstration
+// of the mechanism, not a theme picker — the page still only claims to follow
+// the clock.
+//
+// Wired by delegation from `document`, because this runs before main.ts injects
+// the footer markup. The chips' initial state (which one is pressed, which one
+// is the live hour) is rendered in the markup by src/sections/footer.ts, so
+// nothing here has to touch the DOM at load and the colophon cannot shift.
+// -----------------------------------------------------------------------------
+let previewWired = false
+function initBandPreview() {
+  if (previewWired) return
+  previewWired = true
+  document.addEventListener('click', (e) => {
+    const target = e.target as Element | null
+    if (!target || typeof target.closest !== 'function') return
+    const chip = target.closest<HTMLElement>('[data-tod-set]')
+    const band = chip?.dataset.todSet as TimeBand | undefined
+    if (!band || !(band in BAND_LABEL)) return
+
+    document.documentElement.dataset.tod = band
+    document
+      .querySelectorAll<HTMLElement>('[data-tod-set]')
+      .forEach((el) => el.setAttribute('aria-pressed', String(el === chip)))
+    // The sentence names whatever the paper is currently showing, so it stays
+    // true during a preview instead of insisting it is still the real hour.
+    const name = document.querySelector<HTMLElement>('[data-tod-name]')
+    if (name) name.textContent = BAND_LABEL[band]
+  })
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
