@@ -38,7 +38,7 @@ export const activityHTML = /* html */ `
           遊び場委員会 副リーダー
         </div>
         <p class="role__desc">
-          「まずは楽しく」を大事に、遊び心のある企画を仕掛ける委員会。副リーダーとして運営しています。
+          「まずは楽しく」を大事に、遊び心のある企画を<span class="nb">仕掛ける委員会。</span><span class="nb">副リーダーとして運営しています。</span>
         </p>
       </div>
 
@@ -46,7 +46,7 @@ export const activityHTML = /* html */ `
         <span class="role__no">04</span>
         <div class="role__title">
           <span class="role__en">Founder</span>
-          西日本AI Co-Innovation委員会 創設・運営
+          西日本AI <span class="nb">Co-Innovation委員会</span> 創設・運営
         </div>
         <p class="role__desc">
           西日本の学生がつながり、一緒にAI活用を試せる場をゼロから立ち上げました。地域を越えた共創を目指しています。
@@ -57,7 +57,7 @@ export const activityHTML = /* html */ `
         <span class="role__no">05</span>
         <div class="role__title">
           <span class="role__en">Tech Hub</span>
-          Google AI Tech Hub
+          <span class="nb">Google AI Tech Hub</span>
         </div>
         <p class="role__desc">
           技術好きのメンバーが集まる Tech Hub に所属し、開発ネタや検証結果を共有してきました。

@@ -366,19 +366,28 @@ function initImageSequences(): ScrubSequenceHandle[] {
     guardScrollPosition()
     openingLifecycle.guardScrollPosition = guardScrollPosition
 
-    // ---- SCROLL GUIDANCE (p4a) ----------------------------------------------
+    // ---- SCROLL GUIDANCE (p4a, reworked p4b) --------------------------------
     // The intro is a pinned scrub: nothing happens until the reader scrolls, and
     // a still first frame gives them no reason to believe scrolling is the point.
-    // Three cues, escalating, all retired on the first real scroll:
+    // Cues, escalating, all retired on the first real scroll:
     //   t+0.0s  the arrow + instruction are already on screen
-    //   t+1.2s  the sequence itself starts breathing (frames 0-6, slow yoyo) —
-    //           the strongest signal, because it proves the image is alive
+    //   t+1.2s  a TEASER: the sequence plays frames 0 -> 10 -> 0 as one smooth
+    //           sine move (~1.6s). This is the strongest cue by far, because it
+    //           demonstrates the thing rather than describing it. Repeats every
+    //           4s of continued inactivity.
     //   t+3.0s  the prompt takes a soft emphasis pulse
     // A hairline bar tracks progress through the pinned span, because the pin
     // hides what the native scrollbar would otherwise say about how long this is.
+    //
+    // p4b: the first version oscillated frames 0-6 continuously, which read as a
+    // twitch rather than a playback. A single clean out-and-back over a wider
+    // frame range is legible as motion, and the pause between repeats keeps it
+    // from becoming ambient noise.
+    const TEASER = { delayMs: 1200, repeatMs: 4000, toFrame: 10, halfDur: 0.8 }
     let started = false
-    let idleTween: gsap.core.Tween | null = null
+    let teaser: gsap.core.Timeline | null = null
     let nudgeTimer = 0
+    let repeatTimer = 0
     let urgeTimer = 0
     const idleDrive = { f: 0 }
 
@@ -386,9 +395,12 @@ function initImageSequences(): ScrubSequenceHandle[] {
       if (started) return
       started = true
       window.clearTimeout(nudgeTimer)
+      window.clearTimeout(repeatTimer)
       window.clearTimeout(urgeTimer)
-      idleTween?.kill()
-      idleTween = null
+      teaser?.kill()
+      teaser = null
+      // Leave the canvas on frame 0 so the scrub starts from the true first frame.
+      dropHandle?.setFrame?.(0)
       prompt?.classList.remove('is-urging')
       guide?.classList.add('is-started')
       window.removeEventListener('wheel', stopGuidance)
@@ -401,19 +413,24 @@ function initImageSequences(): ScrubSequenceHandle[] {
     window.addEventListener('touchstart', stopGuidance, { passive: true, once: true })
     window.addEventListener('keydown', stopGuidance, { once: true })
 
+    const playTeaser = () => {
+      if (started) return
+      teaser?.kill()
+      const draw = () => dropHandle?.setFrame?.(idleDrive.f)
+      teaser = gsap
+        .timeline({
+          onComplete: () => {
+            if (started) return
+            repeatTimer = window.setTimeout(playTeaser, TEASER.repeatMs)
+          },
+        })
+        .to(idleDrive, { f: TEASER.toFrame, duration: TEASER.halfDur, ease: 'sine.inOut', onUpdate: draw })
+        .to(idleDrive, { f: 0, duration: TEASER.halfDur, ease: 'sine.inOut', onUpdate: draw })
+    }
+
     const armGuidance = () => {
       if (started || window.scrollY > 4) return
-      nudgeTimer = window.setTimeout(() => {
-        if (started) return
-        idleTween = gsap.to(idleDrive, {
-          f: 6,
-          duration: 1.7,
-          ease: 'sine.inOut',
-          yoyo: true,
-          repeat: -1,
-          onUpdate: () => dropHandle?.setFrame?.(idleDrive.f),
-        })
-      }, 1200)
+      nudgeTimer = window.setTimeout(playTeaser, TEASER.delayMs)
       urgeTimer = window.setTimeout(() => {
         if (!started) prompt?.classList.add('is-urging')
       }, 3000)
@@ -708,9 +725,13 @@ function mottoGlow() {
   if (!el || !aboutEl || !window.matchMedia('(min-width: 1040px)').matches) return
   const split = SplitText.create(el, { type: 'chars' })
   if (!split.chars.length) return
+  // Floor is 0.55, not near-zero: the motto is the hero's own line and has to
+  // stay legible for the whole time the hero is the view. The scrub lifts it to
+  // full as the reader leaves, which is the "lighting up" gesture; starting from
+  // near-invisible made it unreadable for the entire opening instead.
   gsap.fromTo(
     split.chars,
-    { opacity: 0.18 },
+    { opacity: 0.55 },
     {
       opacity: 1,
       ease: 'none',

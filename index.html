@@ -13,19 +13,26 @@
   </head>
   <body>
     <!-- First-load curtain. Paper-coloured, with the mascot silhouette beating on
-         it. It is dismissed by REAL readiness (webfonts + drop frame 0), capped at
-         1.5s, and skipped outright when both are already cached — there is no fake
-         progress bar. Removed instantly under reduced motion. See src/main.ts. -->
+         it. Dismissed by REAL readiness (webfonts + the opening's first 24 drop
+         frames), capped at 4s, and skipped outright when everything is already
+         cached. The bar and the count are the genuine decode tally — there is no
+         synthetic progress. Removed instantly under reduced motion. See main.ts. -->
     <div id="preloader" class="preloader" aria-hidden="true">
-      <img
-        class="preloader__mark"
-        src="/assets/aki_ha_silhouette.png"
-        alt=""
-        width="110"
-        height="110"
-        fetchpriority="high"
-        decoding="async"
-      />
+      <div class="preloader__inner">
+        <img
+          class="preloader__mark"
+          src="/assets/aki_ha_silhouette.png"
+          alt=""
+          width="110"
+          height="110"
+          fetchpriority="high"
+          decoding="async"
+        />
+        <div class="preloader__progress">
+          <span class="preloader__progress-fill"></span>
+        </div>
+        <p class="preloader__count">0 / 24</p>
+      </div>
     </div>
 
     <header class="nav">

@@ -91,7 +91,7 @@ export const worksHTML = /* html */ `
             <span class="work__en">Hands-on Material</span>
             <h3 class="work__title">Antigravity ハンズオン教材</h3>
             <p class="work__desc">
-              Google の AI コーディングエージェント「Antigravity」を約2時間で学べるハンズオン資料を制作・公開。コミュニティでの学び合いにも使っています。
+              Google の AI コーディングエージェント「Antigravity」を約2時間で学べるハンズオン資料を制作・公開。<span class="nb">コミュニティでの学び合い</span><span class="nb">にも使っています。</span>
             </p>
           </div>
           <div class="work__tags">

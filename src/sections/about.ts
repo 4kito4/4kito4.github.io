@@ -23,7 +23,7 @@ export const aboutHTML = /* html */ `
     <div class="about__grid">
       <div class="about__lead">
         <p class="lead" data-animate="reveal">
-          はじめまして、長谷川耀俊（Aki_Ha）です。関西大学で化学工学を学びながら、生成AIを使った開発とコミュニティづくりに打ち込んでいます。「専攻の知識 × AI」で身の回りの課題を解くのが好きで、講義のスキマ時間もだいたい何かをつくっています。
+          はじめまして、<span class="nb">長谷川耀俊（Aki_Ha）です。</span>関西大学で化学工学を学びながら、生成AIを使った開発と<span class="nb">コミュニティづくりに</span><span class="nb">打ち込んでいます。</span>「専攻の知識 × AI」で身の回りの課題を解くのが好きで、講義のスキマ時間もだいたい<span class="nb">何かをつくっています。</span>
         </p>
         <div class="about__chips" data-animate="reveal">
           <span class="chip chip--accent">関西大学</span>
@@ -90,7 +90,7 @@ export const aboutHTML = /* html */ `
             <span class="persona__tag">Just Do It</span>
           </div>
           <ul class="persona__list">
-            <li>どんな人でもリスペクトできるところを探す</li>
+            <li>どんな人でも<span class="nb">リスペクトできるところを探す</span></li>
             <li>「だって」と「でも」を使わない</li>
             <li>毎日をポジティブに過ごす</li>
           </ul>
@@ -102,7 +102,7 @@ export const aboutHTML = /* html */ `
           <ul class="persona__list">
             <li>早寝早起き</li>
             <li>コツコツゆっくり進めること
-              <span class="persona__note">夏休みの宿題は休みに入る前に終わらせるタイプ。終わらなければ試験の素点でどうにかしていました。</span>
+              <span class="persona__note">夏休みの宿題は休みに入る前に<span class="nb">終わらせるタイプ。</span>終わらなければ試験の素点で<span class="nb">どうにかしていました。</span></span>
             </li>
             <li>シャトルラン</li>
           </ul>

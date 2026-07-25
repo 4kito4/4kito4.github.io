@@ -39,17 +39,28 @@ if (!prefersReduced) document.documentElement.classList.add('is-animating')
 
 // -----------------------------------------------------------------------------
 // FIRST-LOAD CURTAIN
-// The opening scene only works if its first frame and the display webfonts are
-// there when the curtain lifts — otherwise the reader's first impression is a
-// blank canvas plus a font swap. So the curtain waits on those two REAL signals
-// (no synthetic progress), with a hard 1.5s ceiling so a slow connection can
-// never hold the page hostage, and no fade at all when both were already cached.
+//
+// The opening is a scroll-scrubbed sequence, so the first seconds of scrolling
+// are exactly when a half-loaded set shows: the engine falls back to the nearest
+// decoded frame and the drop stutters. Waiting is the better trade (explicit
+// product call), so the curtain holds until BOTH:
+//   • the display webfonts are ready, and
+//   • the first 24 drop frames have decoded — the span the reader crosses in the
+//     opening beat, after which the sequential preload stays ahead of the scrub.
+//
+// The bar and the count report that real tally; nothing is synthesised. A 4s hard
+// ceiling caps the wait, after which the page proceeds and the sequence engine's
+// own nearest-loaded fallback plus the three overlay guards take over. When
+// everything is already cached the curtain is removed with no animation at all.
 //
 // It sits above the FOUC guard rather than replacing it: `.is-animating` still
 // pre-hides the hero copy underneath, and the intro timeline still owns the
 // reveal. Dismissal flips <html> to `.is-loaded` and fires `akiha:loaded`, which
-// is what starts the opening's idle-nudge clock (see src/anim/index.ts).
+// is what starts the opening's teaser clock (see src/anim/index.ts).
 // -----------------------------------------------------------------------------
+const CURTAIN_FRAMES = 24
+const CURTAIN_CEILING_MS = 4000
+
 ;(function firstLoadCurtain() {
   const el = document.getElementById('preloader')
   const finish = () => {
@@ -66,6 +77,15 @@ if (!prefersReduced) document.documentElement.classList.add('is-animating')
     return
   }
 
+  const fill = el.querySelector<HTMLElement>('.preloader__progress-fill')
+  const count = el.querySelector<HTMLElement>('.preloader__count')
+  let decoded = 0
+  const report = () => {
+    decoded++
+    if (fill) fill.style.transform = `scaleX(${decoded / CURTAIN_FRAMES})`
+    if (count) count.textContent = `${decoded} / ${CURTAIN_FRAMES}`
+  }
+
   const startedAt = performance.now()
   let dismissed = false
   const dismiss = () => {
@@ -73,8 +93,7 @@ if (!prefersReduced) document.documentElement.classList.add('is-animating')
     dismissed = true
     // Already-cached case: skip the animation entirely rather than inventing a
     // beat the reader has no reason to wait through.
-    const instant = performance.now() - startedAt < 150
-    if (instant) {
+    if (performance.now() - startedAt < 150) {
       el.remove()
       finish()
       return
@@ -86,16 +105,27 @@ if (!prefersReduced) document.documentElement.classList.add('is-animating')
     }, 460)
   }
 
-  const frameZero = new Promise<void>((resolve) => {
-    const img = new Image()
-    img.onload = () => resolve()
-    img.onerror = () => resolve() // a missing frame must not trap the curtain
-    img.src = '/assets/seq/drop/drop_000.webp'
-    if (img.complete) resolve()
+  const frames = Array.from({ length: CURTAIN_FRAMES }, (_, i) => {
+    const url = `/assets/seq/drop/drop_${String(i).padStart(3, '0')}.webp`
+    return new Promise<void>((resolve) => {
+      const img = new Image()
+      img.decoding = 'async'
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        report()
+        resolve()
+      }
+      img.onload = done
+      img.onerror = done // a missing frame must not trap the curtain
+      img.src = url
+      if (img.complete) done()
+    })
   })
 
-  Promise.all([document.fonts.ready, frameZero]).then(dismiss, dismiss)
-  window.setTimeout(dismiss, 1500) // hard ceiling
+  Promise.all([document.fonts.ready, ...frames]).then(dismiss, dismiss)
+  window.setTimeout(dismiss, CURTAIN_CEILING_MS) // hard ceiling
 })()
 
 try {

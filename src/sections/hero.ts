@@ -2,13 +2,13 @@
 export const heroHTML = /* html */ `
   <div class="u-container hero__grid">
     <div class="hero__copy">
-      <span class="hero__eyebrow" data-animate="hero-eyebrow">Google AI Student Community &nbsp;/&nbsp; Ambassador</span>
+      <span class="hero__eyebrow" data-animate="hero-eyebrow"><span class="nb">Google AI Student Community</span> &nbsp;/&nbsp; <span class="nb">Ambassador</span></span>
       <h1 class="hero__name" data-animate="hero-title">
         <span class="hero__name-row">長谷川</span><span class="hero__name-row">耀俊</span>
       </h1>
-      <p class="hero__en" data-animate="hero-title-en">Hasegawa Akitoshi <span class="accent">/ Aki_Ha</span></p>
+      <p class="hero__en" data-animate="hero-title-en"><span class="nb">Hasegawa Akitoshi</span> <span class="accent nb">/ Aki_Ha</span></p>
       <p class="hero__sub" data-animate="hero-sub">
-        化学工学を専攻しながら、生成AIで身の回りの課題を解いています。「つくって、つなげる」が信条です。
+        化学工学を専攻しながら、生成AIで身の回りの課題を<span class="nb">解いています。</span><span class="nb">「つくって、つなげる」が信条です。</span>
       </p>
       <div class="hero__cta" data-animate="hero-cta">
         <a href="#works" class="btn btn--primary"><span data-roll>制作物を見る</span> <span aria-hidden="true">&rarr;</span></a>

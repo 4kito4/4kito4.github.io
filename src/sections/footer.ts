@@ -5,10 +5,10 @@ export const footerHTML = /* html */ `
       ここまで読んでくれて<br />ありがとうございます。
     </h2>
     <p class="footer__note" data-animate="reveal">
-      Discord でも同じ名前で活動しています。委員会や制作物の話、いつでも気軽に声をかけてください。
+      Discord でも<span class="nb">同じ名前で活動しています。</span>委員会や制作物の話、いつでも<span class="nb">気軽に声をかけてください。</span>
     </p>
     <div class="footer__meta">
-      <span>Hasegawa Akitoshi / Aki_Ha</span>
+      <span class="nb">Hasegawa Akitoshi / Aki_Ha</span>
       <span>&copy; 2026 Google AI Student Community &nbsp;/&nbsp; Discord Committee</span>
     </div>
 
@@ -19,7 +19,7 @@ export const footerHTML = /* html */ `
       </div>
       <div>
         <dt>組版</dt>
-        <dd>Zen Kaku Gothic New / Outfit</dd>
+        <dd><span class="nb">Zen Kaku Gothic New</span> / <span class="nb">Outfit</span></dd>
       </div>
       <div>
         <dt>発行年</dt>
