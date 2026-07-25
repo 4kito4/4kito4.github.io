@@ -6,8 +6,92 @@
    Palette   : cream paper × warm sumi (near-black) × maple orange (1 accent)
    Type      : JP display = Zen Kaku Gothic New (extra-bold gothic, self-hosted)
                EN display = Outfit (geometric sans, self-hosted)
-   Fonts are imported in main.ts via @fontsource (no Google Fonts <link>).
    ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   WEBFONTS (p5) — subset, self-hosted, declared once
+
+   These faces are cut by scripts/subset-fonts.mjs from the @fontsource sources
+   (now a devDependency: it is where the fonts come FROM, not something the page
+   loads) down to the ~780 characters this site can ever draw. It replaces the
+   per-weight @fontsource imports that used to sit at the top of main.ts, which
+   shipped 601 kB of render-blocking CSS — 254 kB gzipped, nearly all of it
+   unicode-range declarations for 100+ dynamic slices — plus 924 font files into
+   dist. Total webfont payload is now ~240 kB across seven files, and the
+   stylesheet no longer carries a slice table at all.
+
+   No unicode-range: each face is one file covering the whole set, so there is no
+   per-slice request fan-out and nothing to match against. The single exception is
+   the arrow at the bottom, and that is a glyph-availability fact — see the script.
+
+   Weights are the ones the page actually resolves to (verified by walking every
+   text node in the built page and reading its computed family + weight). Zen Kaku
+   400 was imported and never used; it is gone. Zen Kaku 600 (requested by .chip's
+   Japanese text falling through Outfit) and Outfit 500 (requested by
+   .footer__meta) are deliberately NOT declared — CSS font matching resolves them
+   up to 700 and 600 respectively, which is exactly what shipped before.
+
+   font-display: swap — the first-load curtain in main.ts already waits on
+   document.fonts.ready, so swap only governs the repeat-visit and cache-miss
+   cases, where showing the fallback beats showing nothing.
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/zen-kaku-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/zen-kaku-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/zen-kaku-900.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/outfit-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/outfit-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/outfit-800.woff2") format("woff2");
+}
+
+/* U+2192 (→) — the hero CTA and the works pan cursor. Google's "japanese"
+   aggregate subset, which is the largest face @fontsource ships, does not carry
+   this codepoint; one of the numbered dynamic slices does, so the script cuts the
+   single glyph out of that slice into a 0.6 kB face. The unicode-range is what
+   keeps it from being fetched on a page that never draws an arrow, and what stops
+   it from shadowing the real 700 face for every other character. */
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/zen-kaku-arrow-700.woff2") format("woff2");
+  unicode-range: U+2192;
+}
 
 /* -----------------------------------------------------------------------------
    DESIGN TOKENS
@@ -25,10 +109,18 @@
   --line: #d7c9ac;         /* hairline rules                    */
   --line-strong: #c4b291;  /* stronger rules                    */
 
-  /* ink (warm near-black) */
-  --ink: #211b13;          /* primary text / headlines          */
-  --ink-soft: #4f4535;     /* secondary text                    */
-  --ink-mute: #7d7160;     /* muted / captions                  */
+  /* ink (warm near-black)
+     The three steps are a deliberate hierarchy, and all three carry running text
+     (--ink-mute is on .work__tag, .footer__meta span, .persona__note and the
+     dossier captions), so all three are held to WCAG AA 4.5 — on every paper
+     surface, in every time-of-day band, in both themes. --ink-mute used to sit at
+     4.13 / 3.71 / 3.38 on paper / -2 / -3 and was the page's only AA failure; it
+     is darkened here along its own OKLab hue so the warmth is unchanged and only
+     the lightness moves. Worst case is now 4.63 (paper-3, night band); the step
+     down from --ink-soft's 6.42 keeps the three levels legible as levels. */
+  --ink: #211b13;          /* primary text / headlines     min 11.65 */
+  --ink-soft: #4f4535;     /* secondary text               min  6.42 */
+  --ink-mute: #635a4c;     /* muted / captions             min  4.63 */
 
   /* accent (maple orange, single accent for the whole page) */
   --maple: #c7461c;        /* accent surfaces / large accent    */
@@ -70,11 +162,10 @@
      paper for the theme that actually won — the tint is never a colour computed
      for the other mode.
 
-     Amounts are the largest that keep every ink/paper pair which passes WCAG AA
-     at the base palette still passing AA in all four bands, both themes. The
-     binding pair is --maple-ink on --paper-3 in light: 4.69 base -> 4.52 night.
-     (--ink-mute on light paper sits at 4.13 in the base palette and is not made
-     meaningfully worse by any band: 4.16 morning / 3.98 night.)
+     Amounts are the largest that keep EVERY ink/paper pair at WCAG AA in all four
+     bands, both themes — no exceptions any more. The two binding pairs, both on
+     --paper-3 in the light theme, are --maple-ink (4.69 day -> 4.52 night) and
+     --ink-mute (4.75 day -> 4.63 night).
      ------------------------------------------------------------------------ */
   --tod-tint: var(--paper-base);  /* day: mixing paper into paper = no change */
   --tod-amt: 0%;
@@ -102,7 +193,10 @@
 
     --ink: #efe6d4;
     --ink-soft: #cbbda3;
-    --ink-mute: #988a72;
+    /* Lifted a touch from #988a72, which cleared AA by 0.04 (4.54 on --paper-3 at
+       night) — too thin a margin to be a real pass once a browser's own rounding
+       of the color-mix is in play. 4.66 worst case now, hierarchy unchanged. */
+    --ink-mute: #9a8c75;
 
     --maple: #e86b3c;
     --maple-ink: #f0895e;
@@ -112,7 +206,7 @@
   /* Dark-theme bands. The directions are the same story (cooler in the morning,
      warmer in the evening, dimmer at night) but the tints have to be chosen
      against a dark base, so they are their own values rather than the light
-     ones reused. Tightest pair here: --ink-mute on --paper-3, 4.64 -> 4.54. */
+     ones reused. Tightest pair here: --ink-mute on --paper-3, 4.78 -> 4.66. */
   :root[data-tod="morning"] { --tod-tint: #6f7f92; --tod-amt: 2%; }
   :root[data-tod="evening"] { --tod-tint: #7a4a22; --tod-amt: 3%; }
   :root[data-tod="night"] { --tod-tint: #060402; --tod-amt: 6%; }
@@ -122,13 +216,13 @@
 :root[data-theme="light"] {
   --paper-base: #f4eee1; --paper-2-base: #ece2cf; --paper-3-base: #e4d8c0;
   --line: #d7c9ac; --line-strong: #c4b291;
-  --ink: #211b13; --ink-soft: #4f4535; --ink-mute: #7d7160;
+  --ink: #211b13; --ink-soft: #4f4535; --ink-mute: #635a4c;
   --maple: #c7461c; --maple-ink: #a5380f; --on-maple: #fbf3e6;
 }
 :root[data-theme="dark"] {
   --paper-base: #17130d; --paper-2-base: #201a12; --paper-3-base: #2a2217;
   --line: #362c1e; --line-strong: #4a3d29;
-  --ink: #efe6d4; --ink-soft: #cbbda3; --ink-mute: #988a72;
+  --ink: #efe6d4; --ink-soft: #cbbda3; --ink-mute: #9a8c75;
   --maple: #e86b3c; --maple-ink: #f0895e; --on-maple: #1a1206;
 }
 /* The manual override has to carry its band tints too, otherwise a reader who

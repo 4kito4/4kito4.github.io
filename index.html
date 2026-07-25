@@ -2,14 +2,57 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>長谷川耀俊 / Aki_Ha Portfolio</title>
     <meta
       name="description"
       content="長谷川耀俊 (Aki_Ha) のポートフォリオ。関西大学 化学工学専攻の学生で、Google AI 学生コミュニティのコミュニティアンバサダー。生成AIを使った開発とコミュニティづくりに取り組んでいます。"
     />
+    <link rel="canonical" href="https://4kito4.github.io/" />
     <meta name="color-scheme" content="light dark" />
-    <title>長谷川耀俊 / Aki_Ha Portfolio</title>
+    <meta name="author" content="長谷川耀俊 / Hasegawa Akitoshi" />
+
+    <!-- Icons. Generated from the mascot art by scripts/make-brand-assets.mjs; the
+         cream plate is the page's own paper colour, so the mark keeps a silhouette
+         on a dark tab strip instead of dissolving into it. The old favicon.svg was
+         unrelated scaffolding art and is no longer referenced. -->
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/icon-512.png" sizes="512x512" type="image/png" />
+
+    <!-- Social cards. og:image is a 1200x630 sheet set in the site's own display
+         faces (outlined, so it renders identically wherever it is built) with the
+         mascot on the right — see scripts/make-brand-assets.mjs. Absolute URLs are
+         required here: crawlers do not resolve relative ones. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Aki_Ha Portfolio" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:url" content="https://4kito4.github.io/" />
+    <meta property="og:title" content="長谷川耀俊 / Aki_Ha Portfolio" />
+    <meta
+      property="og:description"
+      content="化学工学を専攻しながら、生成AIで身の回りの課題を解いています。「つくって、つなげる」が信条。Google AI 学生コミュニティ コミュニティアンバサダー。"
+    />
+    <meta property="og:image" content="https://4kito4.github.io/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="長谷川耀俊 / Aki_Ha — 化学工学 × 生成AI。マスコットキャラクターと名前が並んだカード。" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="長谷川耀俊 / Aki_Ha Portfolio" />
+    <meta
+      name="twitter:description"
+      content="化学工学を専攻しながら、生成AIで身の回りの課題を解いています。「つくって、つなげる」が信条。Google AI 学生コミュニティ コミュニティアンバサダー。"
+    />
+    <meta name="twitter:image" content="https://4kito4.github.io/og.jpg" />
+
+    <!-- The two faces the first screen is actually set in: the hero name (Zen Kaku
+         900) and the body copy (500). Preloaded because @font-face in a stylesheet
+         is only discovered after the CSS parses, and these two gate both the LCP
+         element and the first-load curtain, which waits on document.fonts.ready.
+         The remaining faces are left to normal discovery — preloading a file the
+         first screen does not draw would compete with the ones it does. -->
+    <link rel="preload" href="/fonts/zen-kaku-900.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/zen-kaku-500.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <!-- First-load curtain. Paper-coloured, with the mascot silhouette beating on

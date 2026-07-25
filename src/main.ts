@@ -1,14 +1,9 @@
 import './styles/global.css'
 
 // Self-hosted fonts (no Google Fonts <link>). JP display = Zen Kaku Gothic New,
-// EN display = Outfit. Only the weights the design system actually uses.
-import '@fontsource/zen-kaku-gothic-new/400.css'
-import '@fontsource/zen-kaku-gothic-new/500.css'
-import '@fontsource/zen-kaku-gothic-new/700.css'
-import '@fontsource/zen-kaku-gothic-new/900.css'
-import '@fontsource/outfit/600.css'
-import '@fontsource/outfit/700.css'
-import '@fontsource/outfit/800.css'
+// EN display = Outfit. The @font-face rules live at the top of global.css and
+// point at subset files built by scripts/subset-fonts.mjs — there is deliberately
+// no @fontsource import here any more; see the comment block in global.css.
 
 import { openingHTML } from './sections/opening'
 import { heroHTML } from './sections/hero'
