@@ -1,5 +1,5 @@
 // Footer — editorial closing. Discord activity noted; no external SNS links.
-import { BAND_LABEL, bandFor, observedISO, observedStamp } from '../realtime'
+import { BAND_LABEL, BANDS, bandFor, observedISO, observedStamp, storedBand } from '../realtime'
 
 // C4: the visit is stamped once, at module evaluation — i.e. the moment the
 // reader arrived. Baking it into the markup here (rather than writing it into
@@ -7,11 +7,17 @@ import { BAND_LABEL, bandFor, observedISO, observedStamp } from '../realtime'
 // value is present in the very first paint, at its final width.
 const VISIT = new Date()
 
-// C4.1: the live band, rendered into the chips' initial state so the colophon
-// arrives at its final geometry in the first paint (no post-load class writes,
-// no shift). The preview handler in src/realtime.ts takes it from there.
+// C4.1/C4.3: two different bands, and they are only the same one by default.
+//   LIVE_BAND is the actual hour. It never changes while the page is open, so
+//   the 「（観測時刻）」marker is baked in here and never touched again.
+//   SHOWN_BAND is what the paper is currently set to — the reader's stored
+//   choice if they have made one, otherwise the hour. It is what `aria-pressed`
+//   reports, and it is rendered here rather than written after load so the
+//   colophon arrives at its final geometry in the first paint.
 const LIVE_BAND = bandFor(VISIT.getHours())
-const BANDS = ['morning', 'day', 'evening', 'night'] as const
+const STORED = storedBand()
+const SHOWN_BAND = STORED ?? LIVE_BAND
+const IS_MANUAL = STORED !== null
 
 const bandChips = BANDS.map((band) => {
   const isLive = band === LIVE_BAND
@@ -20,7 +26,7 @@ const bandChips = BANDS.map((band) => {
           class="tod-chip${isLive ? ' is-now' : ''}"
           type="button"
           data-tod-set="${band}"
-          aria-pressed="${isLive}"
+          aria-pressed="${band === SHOWN_BAND}"
         >${BAND_LABEL[band]}${isLive ? '<span class="tod-chip__now">（観測時刻）</span>' : ''}</button>`
 }).join('')
 
@@ -70,20 +76,31 @@ export const footerHTML = /* html */ `
 
     <!-- C4.1: what the observation time is actually wired to. The sentence
          states the rule; the chips let the reader press a band and watch the
-         paper move, which is the only way a few percent of one colour can be
-         noticed at all. The choice is not stored: a reload returns the sheet to
-         the real hour.
+         paper move, which is the only way a colour correction this size can be
+         noticed at all.
+
+         C4.3: pressing a band is now a CHOICE, not a preview — it is stored and
+         it outranks the clock on every later visit. Which is exactly why
+         「観測時刻に戻す」 is here: an override with no way out would kill the
+         time link permanently, and this row is the one place that explains the
+         link at all. The button is hidden while the clock is still in charge,
+         because there is nothing to return from.
+
+         role="status" so that a change made up in the header — where the only
+         feedback is a one-character label and a glyph — is still announced.
+         It is polite and the text is short, so it never interrupts.
 
          Deliberately carries no data-animate, unlike the colophon above it:
          this row exists because the mechanism was invisible, so it must not
          itself depend on a scroll animation firing in order to be read. -->
     <div class="tod">
-      <p class="tod__note">
+      <p class="tod__note" role="status">
         <span class="nb">紙の色と明るさは観測時刻に連動します。</span>
-        <span class="nb">いまの紙は<span data-tod-name>${BAND_LABEL[LIVE_BAND]}</span>の光。</span>
+        <span class="nb">いまの紙は<span data-tod-name>${BAND_LABEL[SHOWN_BAND]}</span>の光<span data-tod-manual${IS_MANUAL ? '' : ' hidden'}>（手動）</span>。</span>
       </p>
-      <div class="tod__chips" role="group" aria-label="紙の色を時間帯で試す">${bandChips}
+      <div class="tod__chips" role="group" aria-label="紙の色を時間帯で選ぶ">${bandChips}
       </div>
+      <button class="tod__reset" type="button" data-tod-auto${IS_MANUAL ? '' : ' hidden'}>観測時刻に戻す</button>
     </div>
   </div>
   <img class="footer__deco" data-parallax="0.08" src="/assets/aki_ha_deco_lemon.png" alt="" width="132" height="132" loading="lazy" />

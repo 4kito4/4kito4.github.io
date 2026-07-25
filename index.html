@@ -9,19 +9,56 @@
       content="長谷川耀俊 (Aki_Ha) のポートフォリオ。関西大学 化学工学専攻の学生で、Google AI 学生コミュニティのコミュニティアンバサダー。生成AIを使った開発とコミュニティづくりに取り組んでいます。"
     />
     <link rel="canonical" href="https://4kito4.github.io/" />
-    <meta name="color-scheme" content="light dark" />
+    <!-- C4.3 — both of these are REWRITTEN by the script below and kept in step
+         by src/realtime.ts. They are the only two surfaces where the operating
+         system could still decide how this page looks, so neither is left to it:
+
+         • color-scheme was `light dark`, which tells the UA "the page handles
+           both, you pick" — and the UA picks from the OS. That governs the
+           canvas before the stylesheet applies, the scrollbars and the default
+           control palette, so an OS set to dark flashed a dark canvas under the
+           cream morning sheet. It is now always a single resolved value.
+         • theme-color colours the browser's own bar on mobile. Left unset, that
+           bar follows the OS too. The static value here is the light paper base;
+           realtime.ts replaces it with the real computed paper once CSS is up.
+
+         The values are the LIGHT defaults; the script corrects them in the same
+         breath as data-theme, before anything paints. -->
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f4eee1" />
     <meta name="author" content="長谷川耀俊 / Hasegawa Akitoshi" />
 
-    <!-- C4.2 — the theme follows the clock, not the OS (docs/CONCEPT.md §C4).
-         This runs before the stylesheet paints anything, so arriving at night
-         never flashes the light sheet first. It is deliberately the ONLY thing
-         duplicated from src/realtime.ts, and only the night edge: realtime.ts
-         owns the full band table and re-applies this idempotently along with
-         data-tod. Keep the two night boundaries (19:00 / 05:00) in step. -->
+    <!-- C4.3 — the sheet follows the reader's choice, then the clock, and never
+         the OS (docs/CONCEPT.md §C4). This runs before the stylesheet paints
+         anything, so neither a night visit nor a stored choice ever flashes the
+         wrong sheet first.
+
+         It duplicates two things from src/realtime.ts — the band boundaries and
+         the storage key — because both are needed BEFORE any module can load,
+         and there is no way to share them at this point in the document.
+         realtime.ts owns the authoritative copy and re-applies all of this
+         idempotently. Keep the four boundaries (05/10/16/19) and the key
+         'akiha:tod' in step with it. -->
     <script>
       ;(function () {
-        var h = new Date().getHours()
-        document.documentElement.dataset.theme = h >= 19 || h < 5 ? 'dark' : 'light'
+        var band = null
+        try {
+          band = localStorage.getItem('akiha:tod')
+        } catch (e) {
+          /* private mode: the clock decides, which is the default anyway */
+        }
+        if (['morning', 'day', 'evening', 'night'].indexOf(band) < 0) {
+          var h = new Date().getHours()
+          band = h >= 19 || h < 5 ? 'night' : h < 10 ? 'morning' : h < 16 ? 'day' : 'evening'
+        }
+        var theme = band === 'night' ? 'dark' : 'light'
+        var root = document.documentElement
+        root.dataset.tod = band
+        root.dataset.theme = theme
+        document.querySelector('meta[name="color-scheme"]').content = theme
+        if (theme === 'dark') {
+          document.querySelector('meta[name="theme-color"]').content = '#17130d'
+        }
       })()
     </script>
 
@@ -100,6 +137,33 @@
             <a href="#activity"><span data-roll>活動</span></a>
             <a href="#works"><span data-roll>制作物</span></a>
           </div>
+          <!-- The two standing controls, grouped so they sit tight against each
+               other rather than at the nav's link spacing — and so the sound
+               layer's invitation pill (which anchors to the toggle's parent)
+               hangs under the pair. -->
+          <div class="nav__controls">
+          <!-- C4.3 time-of-day indicator. The clock link used to be stated only
+               in the colophon, at the very bottom of a long page, so a reader
+               could finish the whole site without ever learning the paper was
+               keyed to the hour. This says it from the first paint: the band's
+               name plus a sun or a moon for the sheet it implies.
+
+               It is a five-stop CYCLE (朝→昼→夕→夜→観測時刻), not a toggle, so it
+               carries no aria-pressed — a two-state attribute cannot describe
+               five states. The current value lives in the accessible name
+               instead, rewritten on every press by src/realtime.ts, and the
+               colophon sentence is a role="status" so the change is announced.
+
+               The VISIBLE state is drawn entirely from the two root attributes
+               the head script has already set, in CSS (`.nav__tod-label::before`
+               and `.tod-glyph`), so the indicator is correct in the very first
+               paint without waiting for a module — and all four band names are
+               one CJK character, so the button is the same width in every state
+               and nothing can shift. -->
+          <button class="nav__tod" type="button" data-tod-cycle aria-label="紙の色">
+            <span class="tod-glyph" aria-hidden="true"></span>
+            <span class="nav__tod-label" aria-hidden="true"></span>
+          </button>
           <!-- C3 sound toggle. VISIBLE FROM THE FIRST PAINT (c3.1): it used to be
                `visibility: hidden` until src/anim/sound.ts added `.is-ready`,
                which meant the one thing announcing that this page has sound only
@@ -123,6 +187,7 @@
               <span class="snd__slash"></span>
             </span>
           </button>
+          </div>
         </div>
       </nav>
     </header>

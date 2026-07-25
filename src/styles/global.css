@@ -494,10 +494,74 @@ body::after {
 .nav__links a:hover { color: var(--maple-ink); }
 @media (min-width: 768px) { .nav__links { display: flex; } }
 
-/* Right-hand group: the links keep their right edge and the sound toggle sits
-   outside them. `position: relative` anchors the invitation pill, which hangs
-   below the bar without being in anyone's flow. */
-.nav__end { position: relative; display: flex; align-items: center; gap: 1.5rem; }
+/* Right-hand group: the links keep their right edge and the standing controls
+   sit outside them, at link spacing. */
+.nav__end { display: flex; align-items: center; gap: 1.5rem; }
+
+/* The two standing controls (time-of-day, sound) belong to each other, not to
+   the links, so they get their own tighter rhythm. `position: relative` anchors
+   the sound layer's invitation pill, which hangs below the pair without being in
+   anyone's flow. At 375px the whole nav is the wordmark plus these two, which
+   is ~200px of a 343px content box — the links are display:none below 768. */
+.nav__controls { position: relative; display: flex; align-items: center; gap: 0.5rem; }
+
+/* -----------------------------------------------------------------------------
+   C4.3 — TIME-OF-DAY INDICATOR
+   The clock link used to live only in the colophon, so a reader could finish the
+   whole page without ever learning the paper was keyed to the hour. This states
+   it from the first paint, and cycles on press.
+
+   Everything visible here is derived from the two root attributes the head
+   script sets before the stylesheet paints, so the indicator is never briefly
+   wrong and never waits on a module. All four band names are one CJK character,
+   so the button is the same width in every state.
+   -------------------------------------------------------------------------- */
+.nav__tod {
+  flex: none;
+  height: 34px;
+  padding: 0 0.6rem 0 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;   /* same pill scale as .nav__sound / .tod-chip */
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.nav__tod:hover { color: var(--maple-ink); border-color: var(--maple-ink); }
+.nav__tod:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; }
+.nav__tod:active { transform: scale(0.94); }
+.nav__tod-label {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+/* The band character, drawn from the root attribute rather than written by JS —
+   see the comment above. Keep these four in step with BAND_LABEL in realtime.ts. */
+.nav__tod-label::before { content: "昼"; }
+:root[data-tod="morning"] .nav__tod-label::before { content: "朝"; }
+:root[data-tod="day"] .nav__tod-label::before { content: "昼"; }
+:root[data-tod="evening"] .nav__tod-label::before { content: "夕"; }
+:root[data-tod="night"] .nav__tod-label::before { content: "夜"; }
+
+/* Sun for the light sheet, moon for the dark one — the same binary BAND_THEME
+   draws, so the glyph is telling the reader which sheet the band implies rather
+   than being a second, competing piece of information. The crescent is one
+   radial-gradient biting into the disc, which needs no mask support and cannot
+   pick up the wrong fill from whatever is behind the translucent bar. */
+.tod-glyph {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+:root[data-theme="dark"] .tod-glyph {
+  background: radial-gradient(circle at 124% 24%, rgb(0 0 0 / 0) 56%, currentColor 57%);
+}
 
 /* -----------------------------------------------------------------------------
    C3 — SOUND TOGGLE
@@ -1167,6 +1231,28 @@ body::after {
 /* The live hour is stated in words rather than marked with a dot, so it survives
    being read aloud and needs no legend. */
 .tod-chip__now { font-weight: 500; font-size: 0.68rem; letter-spacing: 0.02em; margin-left: 0.15rem; }
+
+/* C4.3 — the way back. Underlined rather than boxed: it is the undo for a choice
+   the reader just made, not a fifth band to choose from, and giving it the chips'
+   pill would put it in the set it exists to leave. Only in the DOM while a
+   manual choice is in force (`hidden`, written by src/realtime.ts). */
+.tod__reset {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.36rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--maple-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.tod__reset[hidden] { display: none; }
+.tod__reset:hover { color: var(--ink); }
+.tod__reset:focus-visible { outline: 2px solid var(--maple); outline-offset: 2px; border-radius: 4px; }
+.tod__note [data-tod-manual][hidden] { display: none; }
 
 .footer__deco { position: absolute; right: 1rem; bottom: -0.5rem; width: 96px; opacity: 0.9; pointer-events: none; }
 @media (min-width: 768px) { .footer__deco { width: 132px; right: 3rem; } }
