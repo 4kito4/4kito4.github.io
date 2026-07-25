@@ -10,13 +10,14 @@
 // shade warmer at night. Anything louder would be claiming the page changes
 // more than it does.
 //
-// ---- HOW THE TINT IS APPLIED -------------------------------------------------
-// This module writes exactly ONE thing: `data-tod` on <html>. All four bands,
-// for both themes, are declared as token values in global.css (search `--tod-`).
-// That is what keeps the correction honest across theme switching: the tint is
-// resolved per theme by CSS, so flipping prefers-color-scheme (or the manual
-// [data-theme] override) re-derives the paper for the CURRENT theme instead of
-// being stuck with a colour computed in JS for the other one.
+// ---- HOW IT IS APPLIED -------------------------------------------------------
+// This module writes exactly TWO attributes on <html>: `data-theme` (which sheet
+// the page is printed on) and `data-tod` (which light falls on it). Every band's
+// tint, for both sheets, is declared as token values in global.css (search
+// `--tod-`). That is what keeps the correction honest: the tint is resolved per
+// theme by CSS, so changing the sheet re-derives the paper for the theme that
+// actually won instead of being stuck with a colour computed in JS for the
+// other one.
 //
 // ---- CONTRAST ----------------------------------------------------------------
 // Every band was checked against every ink token on every paper surface, in both
@@ -48,11 +49,35 @@ export const BAND_LABEL: Record<TimeBand, string> = {
   night: '夜',
 }
 
+/**
+ * Which sheet each band is read on (C4.2).
+ *
+ * Night is the dark sheet; the rest are light. This is the whole reason the
+ * theme is no longer wired to `prefers-color-scheme`: the OS preference says
+ * how the reader likes their screens, not what time it is where they are, and
+ * the page is a place with a time of day. A manual override can be layered on
+ * later by writing data-theme after this runs — the attribute is the only
+ * switch, and nothing in the stylesheet asks the OS any more.
+ */
+export const BAND_THEME: Record<TimeBand, 'light' | 'dark'> = {
+  morning: 'light',
+  day: 'light',
+  evening: 'light',
+  night: 'dark',
+}
+
 /** The single write. Call before first paint so the paper is never re-tinted
- *  under the reader (and so this can never contribute a shift). */
+ *  under the reader (and so this can never contribute a shift).
+ *
+ *  data-theme is ALSO set by an inline one-liner in index.html <head>, which is
+ *  what keeps a night visit from painting the light sheet first. Re-applying the
+ *  same value here is a deliberate no-op: this is the copy that owns the full
+ *  band table, the head script only knows the night edge. */
 export function applyTimeOfDay(now: Date = new Date()): TimeBand {
   const band = bandFor(now.getHours())
-  document.documentElement.dataset.tod = band
+  const root = document.documentElement
+  root.dataset.tod = band
+  root.dataset.theme = BAND_THEME[band]
   initBandPreview()
   return band
 }
@@ -86,7 +111,11 @@ function initBandPreview() {
     const band = chip?.dataset.todSet as TimeBand | undefined
     if (!band || !(band in BAND_LABEL)) return
 
+    // Theme AND tint together — pressing 夜 has to hand over the dark sheet, or
+    // the chips would only ever demonstrate a fraction of what the clock does.
+    // The 400ms cross-fade is CSS (see the transition on :root in global.css).
     document.documentElement.dataset.tod = band
+    document.documentElement.dataset.theme = BAND_THEME[band]
     document
       .querySelectorAll<HTMLElement>('[data-tod-set]')
       .forEach((el) => el.setAttribute('aria-pressed', String(el === chip)))

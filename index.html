@@ -12,6 +12,19 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="author" content="長谷川耀俊 / Hasegawa Akitoshi" />
 
+    <!-- C4.2 — the theme follows the clock, not the OS (docs/CONCEPT.md §C4).
+         This runs before the stylesheet paints anything, so arriving at night
+         never flashes the light sheet first. It is deliberately the ONLY thing
+         duplicated from src/realtime.ts, and only the night edge: realtime.ts
+         owns the full band table and re-applies this idempotently along with
+         data-tod. Keep the two night boundaries (19:00 / 05:00) in step. -->
+    <script>
+      ;(function () {
+        var h = new Date().getHours()
+        document.documentElement.dataset.theme = h >= 19 || h < 5 ? 'dark' : 'light'
+      })()
+    </script>
+
     <!-- Icons. Generated from the mascot art by scripts/make-brand-assets.mjs; the
          cream plate is the page's own paper colour, so the mark keeps a silhouette
          on a dark tab strip instead of dissolving into it. The old favicon.svg was

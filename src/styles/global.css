@@ -95,11 +95,51 @@
 
 /* -----------------------------------------------------------------------------
    DESIGN TOKENS
-   Page Theme Lock: one world, light + dark. Auto-switch via prefers-color-scheme,
-   plus manual override via :root[data-theme]. The accent (maple) stays the same
+   Page Theme Lock: one world, light + dark. The accent (maple) stays the same
    hue in both modes so the brand reads identically. Mascot yellow lives only in
    imagery, never as a CSS accent, so the single-accent rule holds.
+
+   ---- THEME IS DRIVEN BY THE CLOCK, NOT BY THE OS (C4.2) ----------------------
+   `prefers-color-scheme` no longer selects anything here. The single switch is
+   `<html data-theme="light|dark">`, written from the visit hour: the night band
+   (19:00-04:59) is the dark sheet, morning/day/evening are the light one. This
+   is a deliberate product call — the page is a place with a time of day, and the
+   reader's OS preference does not describe what time it is where they are.
+
+   The attribute form is kept clean precisely so a manual toggle can be added
+   later without touching this block: anything that writes data-theme wins, and
+   nothing else in the stylesheet asks the OS.
+
+   Written twice on purpose:
+     • an inline one-liner in index.html <head>, so a night visit never paints
+       the light sheet first (the only thing it duplicates is the night edge);
+     • src/realtime.ts, which re-applies it with the full band table and also
+       sets data-tod. Idempotent, so the second write is a no-op.
+
+   ---- CROSS-FADE --------------------------------------------------------------
+   The consumed tokens are registered with @property below, which is what makes
+   them interpolable: switching data-theme (or pressing a colophon chip) then
+   cross-fades the whole page over 400ms from ONE transition declaration,
+   instead of needing a transition on every surface that happens to use --paper.
+   Under prefers-reduced-motion the global `transition-duration: 0.001ms` rule at
+   the bottom of this file collapses it to an instant swap.
    -------------------------------------------------------------------------- */
+
+/* Registered so they can be transitioned. Only the tokens the page actually
+   paints with are registered; the *-base tokens and the tint inputs stay plain
+   custom properties, because interpolating those as well would double-animate
+   the same colour. */
+@property --paper { syntax: "<color>"; inherits: true; initial-value: #f4eee1; }
+@property --paper-2 { syntax: "<color>"; inherits: true; initial-value: #ece2cf; }
+@property --paper-3 { syntax: "<color>"; inherits: true; initial-value: #e4d8c0; }
+@property --line { syntax: "<color>"; inherits: true; initial-value: #d7c9ac; }
+@property --line-strong { syntax: "<color>"; inherits: true; initial-value: #c4b291; }
+@property --ink { syntax: "<color>"; inherits: true; initial-value: #211b13; }
+@property --ink-soft { syntax: "<color>"; inherits: true; initial-value: #4f4535; }
+@property --ink-mute { syntax: "<color>"; inherits: true; initial-value: #635a4c; }
+@property --maple { syntax: "<color>"; inherits: true; initial-value: #c7461c; }
+@property --maple-ink { syntax: "<color>"; inherits: true; initial-value: #a5380f; }
+@property --on-maple { syntax: "<color>"; inherits: true; initial-value: #fbf3e6; }
 :root {
   /* surfaces — the *-base tokens are the palette; --paper/-2/-3 below are the
      palette after the C4 time-of-day correction (which is 0% by default). */
@@ -149,23 +189,27 @@
   --radius: 14px;   /* single corner-radius scale for the whole page */
   --radius-sm: 10px;
 
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* ---------------------------------------------------------------------------
      C4 — TIME-OF-DAY PAPER CORRECTION (docs/CONCEPT.md §C4)
 
-     src/realtime.ts writes ONE attribute, `data-tod`, on <html>. Everything else
-     is here: each band names a tint and how much of it enters the paper, and the
-     three paper surfaces are derived from their base in a single place. Because
-     the derivation lives on :root and only the *inputs* are overridden, a theme
-     switch (media query or the manual [data-theme] override) re-derives the
-     paper for the theme that actually won — the tint is never a colour computed
-     for the other mode.
+     src/realtime.ts writes two attributes on <html>: `data-theme` (which sheet)
+     and `data-tod` (which light falls on it). Everything else is here: each band
+     names a tint and how much of it enters the paper, and the three paper
+     surfaces are derived from their base in ONE place. Because the derivation
+     lives on :root and only the *inputs* are overridden, a theme change
+     re-derives the paper for the theme that actually won — the tint is never a
+     colour computed for the other sheet.
 
-     Amounts are the largest that keep EVERY ink/paper pair at WCAG AA in all four
-     bands, both themes — no exceptions any more. The two binding pairs, both on
-     --paper-3 in the light theme, are --maple-ink (4.69 day -> 4.52 night) and
-     --ink-mute (4.75 day -> 4.63 night).
+     C4.2 raised the light bands from "a few percent" to something a reader can
+     actually see: morning is a cool, brighter sheet and evening is a distinctly
+     amber one. Amounts are the largest that keep EVERY ink/paper pair at WCAG AA
+     in every band, both themes. The binding pair throughout is --maple-ink on
+     --paper-3 in the light theme; the day (untinted) palette is itself the worst
+     case at 4.69, and every tinted band scores HIGHER than it, because both
+     tints raise --paper-3's lightness rather than lowering it. That is why the
+     bands could be strengthened this far without spending any contrast.
      ------------------------------------------------------------------------ */
   --tod-tint: var(--paper-base);  /* day: mixing paper into paper = no change */
   --tod-amt: 0%;
@@ -173,66 +217,52 @@
   --paper: color-mix(in oklab, var(--paper-base) calc(100% - var(--tod-amt)), var(--tod-tint));
   --paper-2: color-mix(in oklab, var(--paper-2-base) calc(100% - var(--tod-amt)), var(--tod-tint));
   --paper-3: color-mix(in oklab, var(--paper-3-base) calc(100% - var(--tod-amt)), var(--tod-tint));
+
+  /* The one declaration that cross-fades the entire page (see @property above). */
+  transition-property: --paper, --paper-2, --paper-3, --line, --line-strong,
+    --ink, --ink-soft, --ink-mute, --maple, --maple-ink, --on-maple;
+  transition-duration: 400ms;
+  transition-timing-function: ease;
 }
 
-/* Light-theme bands. Morning lifts and cools the sheet by a hair; evening warms
-   it; night dims and warms it. All of it is a few percent — the reader should
-   register the room, not the effect. */
-:root[data-tod="morning"] { --tod-tint: #f2f8ff; --tod-amt: 6%; }
-:root[data-tod="evening"] { --tod-tint: #e8a866; --tod-amt: 4%; }
+/* Light-theme bands. Morning is the cool, bright sheet; evening is amber. Both
+   tints are LIGHTER than the surfaces they enter, which is what lets them be
+   this strong: they add hue without spending contrast. */
+:root[data-tod="morning"] { --tod-tint: #dcebff; --tod-amt: 40%; }
+:root[data-tod="evening"] { --tod-tint: #ffd48a; --tod-amt: 44%; }
+/* Light + night is not reachable from the clock or the chips (night is the dark
+   sheet). Kept defined so a future manual toggle cannot land on an untinted
+   state that nothing describes. */
 :root[data-tod="night"] { --tod-tint: #6b543a; --tod-amt: 2.5%; }
 
-/* Dark mode: same editorial world, warmed sumi surfaces + brightened maple */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper-base: #17130d;
-    --paper-2-base: #201a12;
-    --paper-3-base: #2a2217;
-    --line: #362c1e;
-    --line-strong: #4a3d29;
-
-    --ink: #efe6d4;
-    --ink-soft: #cbbda3;
-    /* Lifted a touch from #988a72, which cleared AA by 0.04 (4.54 on --paper-3 at
-       night) — too thin a margin to be a real pass once a browser's own rounding
-       of the color-mix is in play. 4.66 worst case now, hierarchy unchanged. */
-    --ink-mute: #9a8c75;
-
-    --maple: #e86b3c;
-    --maple-ink: #f0895e;
-    --on-maple: #1a1206;
-  }
-
-  /* Dark-theme bands. The directions are the same story (cooler in the morning,
-     warmer in the evening, dimmer at night) but the tints have to be chosen
-     against a dark base, so they are their own values rather than the light
-     ones reused. Tightest pair here: --ink-mute on --paper-3, 4.78 -> 4.66. */
-  :root[data-tod="morning"] { --tod-tint: #6f7f92; --tod-amt: 2%; }
-  :root[data-tod="evening"] { --tod-tint: #7a4a22; --tod-amt: 3%; }
-  :root[data-tod="night"] { --tod-tint: #060402; --tod-amt: 6%; }
-}
-
-/* Manual overrides win in both directions */
-:root[data-theme="light"] {
-  --paper-base: #f4eee1; --paper-2-base: #ece2cf; --paper-3-base: #e4d8c0;
-  --line: #d7c9ac; --line-strong: #c4b291;
-  --ink: #211b13; --ink-soft: #4f4535; --ink-mute: #635a4c;
-  --maple: #c7461c; --maple-ink: #a5380f; --on-maple: #fbf3e6;
-}
+/* Dark sheet: same editorial world, warmed sumi surfaces + brightened maple. */
 :root[data-theme="dark"] {
-  --paper-base: #17130d; --paper-2-base: #201a12; --paper-3-base: #2a2217;
-  --line: #362c1e; --line-strong: #4a3d29;
-  --ink: #efe6d4; --ink-soft: #cbbda3; --ink-mute: #9a8c75;
-  --maple: #e86b3c; --maple-ink: #f0895e; --on-maple: #1a1206;
+  color-scheme: dark;
+
+  --paper-base: #17130d;
+  --paper-2-base: #201a12;
+  --paper-3-base: #2a2217;
+  --line: #362c1e;
+  --line-strong: #4a3d29;
+
+  --ink: #efe6d4;
+  --ink-soft: #cbbda3;
+  /* Lifted a touch from #988a72, which cleared AA by 0.04 (4.54 on --paper-3 at
+     night) — too thin a margin to be a real pass once a browser's own rounding
+     of the color-mix is in play. 4.66 worst case now, hierarchy unchanged. */
+  --ink-mute: #9a8c75;
+
+  --maple: #e86b3c;
+  --maple-ink: #f0895e;
+  --on-maple: #1a1206;
 }
-/* The manual override has to carry its band tints too, otherwise a reader who
-   forces light while the OS is dark gets the dark-base tint on light paper. */
-:root[data-theme="light"][data-tod="morning"] { --tod-tint: #f2f8ff; --tod-amt: 6%; }
-:root[data-theme="light"][data-tod="evening"] { --tod-tint: #e8a866; --tod-amt: 4%; }
-:root[data-theme="light"][data-tod="night"] { --tod-tint: #6b543a; --tod-amt: 2.5%; }
+
+/* Dark-theme bands. Night is the one the clock and the 夜 chip actually reach;
+   it deepens the sumi a little further than the raw base. The other three are
+   unreachable in the same way light+night is, and kept for the same reason. */
+:root[data-theme="dark"][data-tod="night"] { --tod-tint: #0a0603; --tod-amt: 14%; }
 :root[data-theme="dark"][data-tod="morning"] { --tod-tint: #6f7f92; --tod-amt: 2%; }
 :root[data-theme="dark"][data-tod="evening"] { --tod-tint: #7a4a22; --tod-amt: 3%; }
-:root[data-theme="dark"][data-tod="night"] { --tod-tint: #060402; --tod-amt: 6%; }
 
 /* -----------------------------------------------------------------------------
    BASE
@@ -321,10 +351,9 @@ body::after {
   opacity: 0.04;
   mix-blend-mode: multiply;
 }
-@media (prefers-color-scheme: dark) {
-  body::after { opacity: 0.06; mix-blend-mode: screen; }
-}
-:root[data-theme="light"] body::after { opacity: 0.04; mix-blend-mode: multiply; }
+/* The grain inverts with the sheet. Blend mode cannot be interpolated, so this
+   one property swaps at the start of the 400ms cross-fade rather than during
+   it; at 0.04-0.06 opacity over a noise tile there is nothing to see. */
 :root[data-theme="dark"] body::after { opacity: 0.06; mix-blend-mode: screen; }
 
 /* -----------------------------------------------------------------------------

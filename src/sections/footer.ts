@@ -79,7 +79,7 @@ export const footerHTML = /* html */ `
          itself depend on a scroll animation firing in order to be read. -->
     <div class="tod">
       <p class="tod__note">
-        <span class="nb">紙の色は観測時刻に連動します。</span>
+        <span class="nb">紙の色と明るさは観測時刻に連動します。</span>
         <span class="nb">いまの紙は<span data-tod-name>${BAND_LABEL[LIVE_BAND]}</span>の光。</span>
       </p>
       <div class="tod__chips" role="group" aria-label="紙の色を時間帯で試す">${bandChips}
