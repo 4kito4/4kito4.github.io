@@ -1,4 +1,12 @@
 // Activity — editorial "index of roles" (magazine contents list), 5 roles.
+//
+// C2: the four COMMITTEE rows each get a chibi guide (aki_ha_mini_*) standing in
+// the row's own number column. Reading: each committee has its own little
+// version of the companion showing you round it. The ambassador row (01) is the
+// umbrella role rather than a committee, so it stays unaccompanied — which is
+// also what keeps the four guides legible as "one per committee" instead of
+// wallpaper. They are decorative (alt="") and sized so they never crowd the
+// number or push the title off its baseline.
 export const activityHTML = /* html */ `
   <div class="u-container">
     <div class="section__head">
@@ -21,7 +29,10 @@ export const activityHTML = /* html */ `
       </div>
 
       <div class="role" data-animate="activity-row">
-        <span class="role__no">02</span>
+        <span class="role__no">
+          02
+          <img class="role__guide" src="/assets/aki_ha_mini_blue.png" alt="" width="109" height="141" loading="lazy" decoding="async" />
+        </span>
         <div class="role__title">
           <span class="role__en">Discord Committee</span>
           Discord特別委員会
@@ -32,7 +43,10 @@ export const activityHTML = /* html */ `
       </div>
 
       <div class="role" data-animate="activity-row">
-        <span class="role__no">03</span>
+        <span class="role__no">
+          03
+          <img class="role__guide" src="/assets/aki_ha_mini_pink.png" alt="" width="106" height="140" loading="lazy" decoding="async" />
+        </span>
         <div class="role__title">
           <span class="role__en">Vice Leader</span>
           遊び場委員会 副リーダー
@@ -43,7 +57,10 @@ export const activityHTML = /* html */ `
       </div>
 
       <div class="role" data-animate="activity-row">
-        <span class="role__no">04</span>
+        <span class="role__no">
+          04
+          <img class="role__guide role__guide--tall" src="/assets/aki_ha_mini_green.png" alt="" width="121" height="194" loading="lazy" decoding="async" />
+        </span>
         <div class="role__title">
           <span class="role__en">Founder</span>
           西日本AI <span class="nb">Co-Innovation委員会</span> 創設・運営
@@ -54,7 +71,10 @@ export const activityHTML = /* html */ `
       </div>
 
       <div class="role" data-animate="activity-row">
-        <span class="role__no">05</span>
+        <span class="role__no">
+          05
+          <img class="role__guide" src="/assets/aki_ha_mini_yellow.png" alt="" width="112" height="142" loading="lazy" decoding="async" />
+        </span>
         <div class="role__title">
           <span class="role__en">Tech Hub</span>
           <span class="nb">Google AI Tech Hub</span>

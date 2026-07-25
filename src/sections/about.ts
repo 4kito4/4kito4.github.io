@@ -50,7 +50,7 @@ export const aboutHTML = /* html */ `
             decoding="async"
           />
           <canvas class="about__turntable-canvas" aria-hidden="true"></canvas>
-          <figcaption class="about__turntable-cap">MASCOT / 360°</figcaption>
+          <figcaption class="about__turntable-cap">AKIHA / 360°</figcaption>
         </figure>
 
         <dl class="about__aside">

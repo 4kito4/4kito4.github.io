@@ -16,6 +16,7 @@ import { Draggable } from 'gsap/Draggable'
 import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import Lenis from 'lenis'
 import { createScrubSequence, createLoopSequence, seqUrls, type ScrubSequenceHandle } from './sequence'
+import { initCompanion } from './companion'
 
 const REVEAL_EASE = 'power3.out'
 
@@ -39,14 +40,28 @@ const openingLifecycle = {
   guardScrollPosition: null as (() => void) | null,
 }
 
+/** Run an optional scene without letting its failure take the page down with it. */
+function safely(fn: () => void) {
+  try {
+    fn()
+  } catch (err) {
+    console.error('[motion] scene failed', err)
+  }
+}
+
 export function initMotion() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   gsap.registerPlugin(ScrollTrigger, SplitText, Draggable, InertiaPlugin)
 
   // Reduced motion: leave everything static and visible. `.is-animating` was never
-  // added under reduce, so the hero is fully painted already.
-  if (reduce) return
+  // added under reduce, so the hero is fully painted already. The companion is
+  // still built — the concept's resident character is content, not motion — but
+  // as a still portrait with no behaviour at all (see initCompanion).
+  if (reduce) {
+    safely(() => initCompanion({ reduce: true }))
+    return
+  }
 
   // ---- Lenis <-> GSAP ticker sync (official pattern) ----------------------
   const lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 1 })
@@ -235,7 +250,13 @@ export function initMotion() {
   initMagnetic()
   initCustomCursor()
 
-  // ---- Font-dependent scenes: hero intro (SplitText) + draggable mascot ----
+  // ---- C1 — the resident companion (see src/anim/companion.ts) -------------
+  // Isolated behind `safely` because it is the newest and most stateful scene on
+  // the page: if it ever throws, the rest of the motion layer (and therefore the
+  // whole document) must still come up.
+  safely(() => initCompanion({ reduce: false, lenis }))
+
+  // ---- Font-dependent scenes: hero intro (SplitText) + hero mascot sway ----
   document.fonts.ready.then(() => {
     const heroTl = heroIntro() // built paused; the opening scrub triggers play
     heroHandoff.play = () => heroTl.play()
@@ -248,7 +269,7 @@ export function initMotion() {
     splitHeadings()
     mottoGlow()
 
-    mascotDraggable(lenis)
+    heroMascotSway()
     ScrollTrigger.refresh()
     document.documentElement.classList.remove('is-animating')
     // Backstop after layout settles: catch anything already in view that no
@@ -885,64 +906,32 @@ function initCustomCursor() {
 }
 
 // -----------------------------------------------------------------------------
-// Scene 6 — mascot is grab-and-throwable (Draggable + InertiaPlugin); on release
-// it springs elastically home. Idle micro-sway + grab cursor hint interactivity.
+// Scene 6 — hero mascot plate.
+//
+// C1 CHANGE: this used to be the page's Draggable + poke target. Both moved to
+// the companion (src/anim/companion.ts). Reason: the concept has exactly ONE
+// living body, and two grabbable mascots read as two unrelated toys — the reader
+// learns the affordance on the hero, then finds the corner copy inert, which
+// actively contradicts "the companion is alive". The grab cursor and the DRAG
+// cursor label moved with it, so the page now offers the affordance in exactly
+// one place.
+//
+// What stays is the slow sway. Justification: storytelling — the hero plate is
+// the portrait the corner companion later steps out of, so it has to be
+// breathing when you meet it. It is transform-only, seven seconds of travel, and
+// never invites a click it cannot honour.
 // -----------------------------------------------------------------------------
-function mascotDraggable(lenis: Lenis) {
+function heroMascotSway() {
   const frame = document.querySelector<HTMLElement>('.hero__media-frame')
-  const heroEl = document.querySelector<HTMLElement>('.hero')
-  if (!frame || !heroEl) return
+  if (!frame) return
 
-  frame.classList.add('is-draggable')
-  frame.dataset.cursor = 'drag'
-
-  const sway = gsap.to(frame, {
+  gsap.to(frame, {
     rotation: 1.6,
     duration: 2.6,
     ease: 'sine.inOut',
     yoyo: true,
     repeat: -1,
     transformOrigin: '50% 90%',
-  })
-
-  const goHome = () => {
-    gsap.to(frame, {
-      x: 0,
-      y: 0,
-      rotation: 0,
-      duration: 1.1,
-      ease: 'elastic.out(1, 0.45)',
-      onComplete: () => sway.restart(true),
-    })
-  }
-
-  // Click (a press that did NOT become a drag) squashes and springs back.
-  // Justification: feedback — the mascot is the one thing on the page that
-  // invites poking, so it has to answer. Scale only, so it composes with the x/y
-  // Draggable owns and never fights it.
-  let boing: gsap.core.Timeline | null = null
-  const bounce = () => {
-    boing?.kill()
-    boing = gsap
-      .timeline({ onComplete: () => sway.restart(true) })
-      .to(frame, { scaleX: 1.09, scaleY: 0.9, duration: 0.13, ease: 'power2.out' })
-      .to(frame, { scaleX: 0.95, scaleY: 1.07, duration: 0.16, ease: 'power1.inOut' })
-      .to(frame, { scaleX: 1, scaleY: 1, duration: 0.85, ease: 'elastic.out(1, 0.32)' })
-  }
-
-  Draggable.create(frame, {
-    type: 'x,y',
-    bounds: heroEl,
-    edgeResistance: 0.72,
-    inertia: true,
-    dragClickables: false,
-    onPress: () => {
-      sway.pause()
-      lenis.stop() // don't let the page scroll while wrestling the mascot
-    },
-    onRelease: () => lenis.start(),
-    onThrowComplete: goHome,
-    onClick: bounce,
   })
 }
 

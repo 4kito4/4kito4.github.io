@@ -532,7 +532,22 @@ body::after {
   .role { grid-template-columns: 3rem 1fr 1.1fr; padding: 2rem 0; }
 }
 .role:hover { background: color-mix(in oklab, var(--paper-2) 60%, transparent); }
-.role__no { font-family: var(--font-en); font-weight: 800; font-size: 1rem; color: var(--maple-ink); letter-spacing: 0.04em; }
+.role__no {
+  font-family: var(--font-en); font-weight: 800; font-size: 1rem;
+  color: var(--maple-ink); letter-spacing: 0.04em;
+  /* C2: the number column doubles as the committee guide's stand. Inline on
+     narrow screens (number then guide, one line), stacked in the 3rem column
+     from 820px up. The flex baseline is still the number's own first line, so
+     the row keeps its `align-items: baseline` alignment with the title. */
+  display: flex; align-items: center; gap: 0.6rem;
+}
+@media (min-width: 820px) {
+  .role__no { flex-direction: column; align-items: flex-start; gap: 0.55rem; }
+}
+/* Sized off each sprite's own drawn height so the four read as one family
+   (the green one is drawn smaller inside a taller canvas). */
+.role__guide { width: 38px; height: auto; flex-shrink: 0; }
+.role__guide--tall { width: 44px; margin-top: -0.4rem; }
 .role__title { font-family: var(--font-jp); font-weight: 900; font-size: clamp(1.3rem, 2.4vw, 1.85rem); line-height: 1.3; color: var(--ink); }
 .role__en { display: block; font-family: var(--font-en); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.04em; color: var(--maple-ink); margin-bottom: 0.35rem; }
 .role__desc { color: var(--ink-soft); font-weight: 500; font-size: 0.95rem; line-height: 1.85; }
@@ -573,12 +588,22 @@ body::after {
 .work--feature .work__body { padding: 1.8rem; display: flex; flex-direction: column; flex: 1; }
 .work--feature .work__title { font-size: clamp(1.5rem, 2.6vw, 2rem); }
 .work--feature .work__desc { font-size: 1rem; }
+.work__flags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
 .work__flag {
   white-space: nowrap;
   display: inline-flex; align-self: flex-start; align-items: center;
   font-family: var(--font-en); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.05em;
   color: var(--on-maple); background: var(--maple); padding: 0.3rem 0.75rem; border-radius: 999px;
-  margin-bottom: 0.9rem;
+}
+/* Build status. Deliberately the quiet sibling of the maple flag: outline only,
+   muted ink, so it reads as a fact about the piece and never as a second badge
+   competing with it. Same pill radius, so the shape system holds. */
+.work__status {
+  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-family: var(--font-jp); font-weight: 700; font-size: 0.7rem; letter-spacing: 0.04em;
+  color: var(--ink-mute); border: 1px solid var(--line-strong);
+  padding: 0.26rem 0.65rem; border-radius: 999px;
 }
 
 /* right column beside the featured tile (each fills the 2-wide right column) */
@@ -663,6 +688,31 @@ body::after {
 .footer__note { margin-top: 1.25rem; max-width: 46ch; color: var(--ink-soft); font-weight: 500; line-height: 1.9; }
 .footer__meta { margin-top: 3rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 1.5rem; }
 .footer__meta span { font-family: var(--font-en); font-size: 0.78rem; letter-spacing: 0.04em; color: var(--ink-mute); }
+
+/* C2 send-off — the companion's closing line, set as a spoken aside above the
+   colophon: the speaker's name in maple, the line in the reading voice. It is a
+   line of dialogue, so it is deliberately NOT a pill or a badge. */
+.footer__sendoff {
+  margin: 2.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.85rem;
+}
+.footer__sendoff-who {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--maple-ink);
+}
+.footer__sendoff-line {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  line-height: 1.5;
+  color: var(--ink);
+}
 
 /* Colophon (奥付) — a printed-matter closing plate. Honest production notes,
    laid out as columns so no middle dots are needed. */
@@ -772,8 +822,8 @@ body::after {
 }
 
 /* Draggable mascot (Scene 6) — affordance: grab cursor + hint it can be thrown. */
-.hero__media-frame.is-draggable { cursor: grab; touch-action: none; }
-.hero__media-frame.is-draggable:active { cursor: grabbing; }
+/* The hero plate is display-only since C1 — grab and poke belong to the
+   companion, so no grab cursor is offered here. */
 
 /* -----------------------------------------------------------------------------
    INTRO STAGE + OPENING (Scene 9) — the hero and the opening sequence share one
@@ -1151,6 +1201,110 @@ body::after {
 @media (pointer: coarse) { .cursor { display: none; } }
 
 /* -----------------------------------------------------------------------------
+   COMPANION (C1) — the resident mascot in the bottom-right corner.
+
+   LAYER STACK. The body art has eyes baked in, so a blink or a glance needs the
+   baked pair GONE. Each `__lid` is a feather-masked patch of the body image
+   sampled 46px (natural units) straight above its own eye — the same fur, the
+   same lighting, the same brush direction — painted over the baked eye. The
+   `__eye` plates on top are then the only eyes on screen and can move freely.
+
+   GEOMETRY. Everything is a percentage of the box, measured off the 306x334
+   source art (baked iris centres: 115.5,135 and 189,135), so the 96px desktop and
+   72px mobile renders are the same composition at two scales. The `__lid`
+   background-position percentages resolve to a -87.5 / -161 px horizontal and
+   -60 px vertical crop in source units.
+
+   LAYERING. z-index 55 sits above the nav (50) and the page, below the paper
+   grain (60) and the cursor (70) — the companion lives inside the paper world,
+   not on top of it.
+
+   NO CLS. Fixed root, explicit width + aspect-ratio, every layer absolutely
+   positioned: the composition is out of flow and reserves its own box.
+   -------------------------------------------------------------------------- */
+.companion {
+  position: fixed;
+  right: 1.25rem;
+  bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  width: 72px;
+  aspect-ratio: 306 / 334;
+  z-index: 55;
+  /* Only the body takes the pointer, so the corner stays clickable-through. */
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+@media (min-width: 768px) { .companion { width: 96px; } }
+
+.companion__inner,
+.companion__body { position: absolute; inset: 0; }
+.companion__body { pointer-events: auto; cursor: grab; touch-action: none; }
+.companion__body:active { cursor: grabbing; }
+@media (pointer: coarse) { .companion__body { cursor: default; touch-action: manipulation; } }
+
+.companion__art { width: 100%; height: 100%; }
+
+.companion__lid {
+  position: absolute;
+  top: 31.74%;
+  width: 18.3%;
+  height: 17.37%;
+  background-image: url("/assets/aki_ha_body_front.png");
+  background-repeat: no-repeat;
+  background-size: 546.43% 575.86%;
+  /* Soft ellipse: opaque across the baked iris, feathered to nothing well before
+     the patch edge, so the borrowed fur never shows a seam. */
+  -webkit-mask-image: radial-gradient(closest-side, #000 58%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 58%, transparent 100%);
+}
+.companion__lid--l { left: 28.59%; background-position: 35% 21.74%; }
+.companion__lid--r { left: 52.61%; background-position: 64.4% 21.74%; }
+
+.companion__eye { position: absolute; height: 14.6%; }
+.companion__eye--l { left: 30.56%; top: 33.7%; width: 15.15%; }
+.companion__eye--r { left: 54.11%; top: 33.26%; width: 16.42%; }
+
+/* One line, spoken to the left of the companion so it never leaves the viewport. */
+.companion__bubble {
+  position: absolute;
+  right: calc(100% + 0.55rem);
+  bottom: 38%;
+  margin: 0;
+  width: max-content;
+  max-width: min(14rem, 56vw);
+  padding: 0.4rem 0.7rem;
+  background: var(--paper-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 10px 26px color-mix(in oklab, var(--ink) 14%, transparent);
+}
+.companion__bubble::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  bottom: 0.6rem;
+  width: 8px;
+  height: 8px;
+  background: var(--paper-2);
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  transform: rotate(-45deg);
+}
+
+/* Reduced motion: a still portrait, no pointer target, and it steps out of the
+   way of the colophon rather than sitting on top of it. */
+.companion.is-static { opacity: 1; }
+.companion.is-static .companion__body { pointer-events: none; cursor: default; }
+.companion.is-static.is-away { opacity: 0; }
+
+/* -----------------------------------------------------------------------------
    REDUCED MOTION — mandatory kill switch. The JS layer already skips every scene
    under reduce (no from-states, no Lenis, no Draggable, no marquee), so content
    renders fully. This block neutralises any residual CSS transition/animation and
@@ -1192,4 +1346,14 @@ body::after {
 
   /* Custom cursor is never constructed under reduce (initMotion returns first). */
   .cursor { display: none !important; }
+
+  /* Companion: initCompanion builds the still `.is-static` variant under reduce
+     and attaches no tweens, no Draggable and no listeners at all. These are belt
+     rules for a media-query change made after init — whatever transform the live
+     version was mid-way through, it comes to rest. */
+  .companion { transition: none !important; }
+  .companion__inner,
+  .companion__body,
+  .companion__eye { transform: none !important; }
+  .companion__bubble { display: none !important; }
 }

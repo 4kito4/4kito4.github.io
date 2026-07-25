@@ -41,7 +41,7 @@ export const openingHTML = /* html */ `
     <div class="opening__guide">
       <div class="guide__prompt">
         <span class="guide__arrow" aria-hidden="true"></span>
-        <span class="guide__label">スクロールして物語をすすめる</span>
+        <span class="guide__label">スクロールして あきはを むかえにいく</span>
       </div>
       <div class="guide__bar">
         <span class="guide__bar-fill"></span>

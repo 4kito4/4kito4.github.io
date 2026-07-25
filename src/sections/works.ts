@@ -1,4 +1,10 @@
 // Works — bento grid, exactly 6 cells, tutor platform featured with a real image.
+//
+// C2: every cell carries `data-companion-say`, one line the corner companion says
+// while the cell is hovered (fine pointers only — see src/anim/companion.ts). The
+// lines are the companion's impression of the piece, never a claim about it: no
+// metric, no status and no capability is asserted that the card does not already
+// state in its own copy.
 export const worksHTML = /* html */ `
   <div class="u-container">
     <div class="section__head section__head--spine">
@@ -13,10 +19,15 @@ export const worksHTML = /* html */ `
   <div class="works-scene" data-works-scene>
     <div class="works" data-works-track>
       <!-- 01 featured: 家庭教師マッチングプラットフォーム -->
-      <article class="work work--feature" data-animate="work-feature">
+      <article class="work work--feature" data-animate="work-feature" data-companion-say="これ、いちばん がんばってるんだ">
         <img class="work__img" src="/assets/aki_ha_tutor.jpg" alt="家庭教師マッチングプラットフォームのイメージ" width="800" height="450" loading="lazy" />
         <div class="work__body">
-          <span class="work__flag">いちばん力を入れています</span>
+          <div class="work__flags">
+            <span class="work__flag">いちばん力を入れています</span>
+            <!-- Honest status, deliberately quiet: the service is still being
+                 built, so the card states that rather than linking out to it. -->
+            <span class="work__status">開発中</span>
+          </div>
           <span class="work__en">Matching Platform</span>
           <h3 class="work__title">家庭教師マッチングプラットフォーム</h3>
           <p class="work__desc">
@@ -32,7 +43,7 @@ export const worksHTML = /* html */ `
       </article>
 
       <!-- 02 履修AI -->
-      <article class="work work--c2" data-animate="work-card">
+      <article class="work work--c2" data-animate="work-card" data-companion-say="履修、まよっちゃうもんね">
         <span class="work__en">Course Navigator</span>
         <h3 class="work__title">履修AI「course-navigator」</h3>
         <p class="work__desc">
@@ -46,7 +57,7 @@ export const worksHTML = /* html */ `
       </article>
 
       <!-- 03 NPUローカルAI -->
-      <article class="work work--c2" data-animate="work-card">
+      <article class="work work--c2" data-animate="work-card" data-companion-say="このパソコンの中だけで、うごくんだって">
         <span class="work__en">On-device AI</span>
         <h3 class="work__title">NPUローカルAI環境</h3>
         <p class="work__desc">
@@ -59,7 +70,7 @@ export const worksHTML = /* html */ `
       </article>
 
       <!-- 04 intro-topic-bot -->
-      <article class="work work--c3" data-animate="work-card">
+      <article class="work work--c3" data-animate="work-card" data-companion-say="はなしのきっかけ、そっと置いてくれる子">
         <span class="work__en">Discord Bot</span>
         <h3 class="work__title">intro-topic-bot</h3>
         <p class="work__desc">
@@ -72,7 +83,7 @@ export const worksHTML = /* html */ `
       </article>
 
       <!-- 05 chem-tools -->
-      <article class="work work--c3" data-animate="work-card">
+      <article class="work work--c3" data-animate="work-card" data-companion-say="化学の絵、かいてくれるんだよ">
         <span class="work__en">Chemistry × AI</span>
         <h3 class="work__title">chem-tools</h3>
         <p class="work__desc">
@@ -85,7 +96,7 @@ export const worksHTML = /* html */ `
       </article>
 
       <!-- 06 Antigravity ハンズオン教材 (full-width band) -->
-      <article class="work work--band" data-animate="work-card">
+      <article class="work work--band" data-animate="work-card" data-companion-say="いっしょに べんきょうできるやつ">
         <div class="work__row">
           <div>
             <span class="work__en">Hands-on Material</span>

@@ -12,6 +12,14 @@ export const footerHTML = /* html */ `
       <span>&copy; 2026 Google AI Student Community &nbsp;/&nbsp; Discord Committee</span>
     </div>
 
+    <!-- C2: the companion's send-off. It bows in the corner as this comes into
+         view (see src/anim/companion.ts) and then steps aside, so the line is
+         also here in plain text for anyone who never sees the motion. -->
+    <p class="footer__sendoff" data-animate="reveal">
+      <span class="footer__sendoff-who">あきは</span>
+      <span class="footer__sendoff-line">また遊びに来てね</span>
+    </p>
+
     <dl class="colophon" data-animate="reveal">
       <div>
         <dt>発行</dt>
