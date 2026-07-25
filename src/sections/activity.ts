@@ -2,7 +2,7 @@
 export const activityHTML = /* html */ `
   <div class="u-container">
     <div class="section__head">
-      <h2 class="section-h" data-animate="reveal">活動</h2>
+      <h2 class="section-h" data-animate="split-h">活動</h2>
       <p class="lead" data-animate="reveal" style="margin-top:0.75rem;max-width:52ch;">
         全国から選ばれた31名のコミュニティアンバサダーの一人として、複数の委員会で運営に関わっています。
       </p>

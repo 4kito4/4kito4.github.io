@@ -408,11 +408,30 @@ body::after {
 .section__head { margin-bottom: 3rem; }
 
 /* -----------------------------------------------------------------------------
-   ABOUT — editorial lead + attribute chips, then persona index (2x2)
+   ABOUT — one magazine spread (p4a)
+
+   Before: a wide lead column beside a short plate column, then the persona cards
+   as a separate full-width slab underneath. The lead column ran out of content
+   long before the plate did, so the spread had a hole in it.
+
+   Now the spread is a single grid. The reading column carries lead -> chips ->
+   the persona index (two-up), and the plate column (turntable + attributes)
+   spans BOTH rows and sticks, so the mascot accompanies the entire read instead
+   of scrolling away. Below 1000px the areas linearise to lead -> plate -> index.
    -------------------------------------------------------------------------- */
-.about__intro { display: grid; grid-template-columns: 1fr; gap: 2rem; align-items: start; }
-@media (min-width: 860px) {
-  .about__intro { grid-template-columns: 1.6fr 1fr; gap: 3.5rem; }
+.about__grid { display: grid; grid-template-columns: 1fr; gap: 2.5rem; align-items: start; }
+@media (min-width: 1000px) {
+  .about__grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.92fr);
+    grid-template-areas:
+      "lead  side"
+      "index side";
+    column-gap: 3.5rem;
+    row-gap: 3rem;
+  }
+  .about__lead { grid-area: lead; }
+  .about__side { grid-area: side; position: sticky; top: 5.5rem; }
+  .persona { grid-area: index; }
 }
 .about__chips { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.75rem; }
 .about__aside {
@@ -426,23 +445,32 @@ body::after {
 .about__aside dd { margin: 0.15rem 0 0; font-weight: 700; color: var(--ink); }
 
 .persona {
-  margin-top: 4rem;
   display: grid;
   grid-template-columns: 1fr;
   gap: 0;
   border-top: 1px solid var(--line);
 }
-@media (min-width: 720px) { .persona { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 640px) { .persona { grid-template-columns: 1fr 1fr; } }
 .persona__item {
-  padding: 2rem 0;
+  position: relative;
+  padding: 1.75rem 0;
   border-bottom: 1px solid var(--line);
 }
-@media (min-width: 720px) {
-  .persona__item:nth-child(odd) { padding-right: 2.5rem; border-right: 1px solid var(--line); }
-  .persona__item:nth-child(even) { padding-left: 2.5rem; }
+@media (min-width: 640px) {
+  .persona__item:nth-child(odd) { padding-right: 1.75rem; border-right: 1px solid var(--line); }
+  .persona__item:nth-child(even) { padding-left: 1.75rem; }
 }
-.persona__no { font-family: var(--font-en); font-weight: 800; color: var(--maple-ink); font-size: 0.85rem; letter-spacing: 0.08em; }
-.persona__title { font-family: var(--font-jp); font-weight: 900; font-size: 1.35rem; margin: 0.4rem 0 0.9rem; color: var(--ink); }
+/* Index marker. Replaces the old 01-04 stamps: the entries are an index, not a
+   numbered procedure, and the number was decoration pretending to be data. */
+.persona__rule {
+  display: block;
+  width: 1.6rem;
+  height: 2px;
+  background: var(--maple);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: left center;
+}
+.persona__title { font-family: var(--font-jp); font-weight: 900; font-size: 1.28rem; margin: 0.75rem 0 0.85rem; color: var(--ink); }
 .persona__list { margin: 0; padding: 0; list-style: none; }
 .persona__list li { position: relative; padding-left: 1.1rem; color: var(--ink-soft); font-weight: 500; font-size: 0.98rem; line-height: 1.85; }
 .persona__list li::before { content: ""; position: absolute; left: 0; top: 0.85em; width: 0.42rem; height: 0.42rem; background: var(--maple); border-radius: 50%; }
@@ -747,43 +775,97 @@ body::after {
   pointer-events: none;
   z-index: 1;
 }
-.opening__hint {
+/* SCROLL GUIDANCE (p4a) — the old single hint pill was too quiet for a page that
+   does nothing at all until you scroll. Now: a bouncing arrow, a plain sentence,
+   and a hairline progress bar for the pinned span. The JS layer fades the prompt
+   on the first movement and drives the bar's scaleX from the scrub progress. */
+.opening__guide {
   position: absolute;
-  left: 50%;
-  bottom: clamp(1.75rem, 6vh, 3.5rem);
-  transform: translateX(-50%);
-  margin: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
   pointer-events: none;
-}
-.opening__hint-pill {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-jp);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
-  background: color-mix(in oklab, var(--paper) 78%, transparent);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  backdrop-filter: saturate(140%) blur(8px);
-  -webkit-backdrop-filter: saturate(140%) blur(8px);
-  animation: opening-hint-bob 2.4s ease-in-out infinite;
+  gap: clamp(1.1rem, 4vh, 2.1rem);
+  padding-bottom: clamp(1.1rem, 3vh, 2rem);
 }
-.opening__hint-pill::after {
+.guide__prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.guide__arrow {
+  display: block;
+  width: 1px;
+  height: 2.4rem;
+  background: linear-gradient(to bottom, transparent, var(--maple));
+  position: relative;
+  animation: guide-bob 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.guide__arrow::after {
   content: "";
-  width: 0.5rem;
-  height: 0.5rem;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0.62rem;
+  height: 0.62rem;
   border-right: 2px solid var(--maple);
   border-bottom: 2px solid var(--maple);
-  transform: rotate(45deg) translate(-1px, -1px);
+  transform: translate(-50%, 22%) rotate(45deg);
 }
-@keyframes opening-hint-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(4px); }
+.guide__label {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--paper) 84%, transparent);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.55rem 1.25rem;
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+}
+/* 3s with no input: the prompt takes one soft breath so it re-enters peripheral
+   vision without shouting. Removed the instant a scroll begins. */
+.guide__prompt.is-urging { animation: guide-urge 1.5s ease-in-out infinite; }
+/* Once scrolling has started the prompt is retired for good: it has done its job,
+   and re-entering the intro from below does not need the lesson repeated. This
+   also backstops the progress-keyed fade, which cannot run if the scrub stalls. */
+.opening__guide.is-started .guide__prompt {
+  opacity: 0 !important;
+  transition: opacity 0.45s ease-out;
+}
+
+/* Progress readout for the pinned intro. The pin hides what the native scrollbar
+   would say about how long this moment lasts, so the bar answers that. */
+.guide__bar {
+  width: min(240px, 46vw);
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink) 16%, transparent);
+  overflow: hidden;
+}
+.guide__bar-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--maple);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@keyframes guide-bob {
+  0%, 100% { transform: translateY(-5px); opacity: 0.65; }
+  50% { transform: translateY(5px); opacity: 1; }
+}
+@keyframes guide-urge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
 }
 
 /* -----------------------------------------------------------------------------
@@ -823,6 +905,164 @@ body::after {
   z-index: 1;
 }
 
+/* =============================================================================
+   P4A — INTERACTION LAYER
+   Loading curtain, rollover labels, running underlines, card hover responses and
+   the (opt-in, requested) custom cursor. Everything here is transform/opacity or
+   colour only, hover-gated, and neutralised by the reduced-motion block below.
+   ============================================================================= */
+
+/* ---- First-load curtain ---------------------------------------------------
+   Paper-coloured full screen with the mascot silhouette beating on it. Sits above
+   the grain (z 60) and the cursor (z 70). main.ts dismisses it on REAL readiness
+   (webfonts + drop frame 0), capped at 1.5s, skipped entirely when cached. */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  transition: opacity 0.42s ease-out;
+}
+.preloader__mark {
+  width: clamp(58px, 11vw, 96px);
+  height: auto;
+  opacity: 0.85;
+  animation: preload-beat 1.15s ease-in-out infinite;
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out;
+}
+.preloader.is-done { opacity: 0; }
+.preloader.is-done .preloader__mark {
+  animation: none;
+  transform: scale(1.32);
+  opacity: 0;
+}
+@keyframes preload-beat {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  45% { transform: scale(1.09); opacity: 1; }
+}
+
+/* ---- Rollover labels ------------------------------------------------------
+   JS stacks a duplicate of the label one line below the original inside an
+   overflow clip; hover slides the pair up. The duplicate is aria-hidden. */
+.roll {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: 1.5;
+}
+.roll__i { display: block; transition: transform 0.52s cubic-bezier(0.16, 1, 0.3, 1); }
+.roll__t { display: block; white-space: nowrap; }
+.roll__t + .roll__t { position: absolute; left: 0; top: 100%; width: 100%; }
+:where(a, .btn):hover .roll__i,
+:where(a, .btn):focus-visible .roll__i { transform: translateY(-100%); }
+
+/* ---- Nav underline: a maple hairline that runs in from the left ----------- */
+.nav__links a { position: relative; }
+.nav__links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.3rem;
+  height: 1px;
+  background: var(--maple);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav__links a:hover::after,
+.nav__links a:focus-visible::after { transform: scaleX(1); }
+
+/* ---- Card hover: a maple rule runs along the card's own baseline ----------
+   Reuses each card's existing hairline rather than adding a new one, so the
+   page's rule budget is unchanged. */
+.persona__item::after,
+.work::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  background: var(--maple);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.persona__item::after { left: 0; right: 0; }
+.work::after { left: 1.1rem; right: 1.1rem; bottom: 0; border-radius: 999px; }
+.persona__item:hover::after,
+.work:hover::after { transform: scaleX(1); }
+/* The index marker tilts as the entry wakes up. */
+.persona__item:hover .persona__rule { transform: rotate(-7deg) scaleX(1.35); }
+
+/* Work titles open their tracking a hair on hover. Contained: every panned card
+   has a fixed width, so the track's total width never changes. */
+.work__title { transition: letter-spacing 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+@media (pointer: fine) {
+  .work:hover .work__title { letter-spacing: 0.05em; }
+}
+
+/* ---- Custom cursor --------------------------------------------------------
+   Explicitly requested. Built as an ADDITION to the native cursor, never a
+   replacement: the OS cursor stays visible, this layer is pointer-events:none
+   and aria-hidden, and it is only ever created on a fine pointer with motion
+   enabled (see initCustomCursor). difference blending keeps it legible on both
+   the cream and the sumi theme without needing per-theme colours. */
+.cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  mix-blend-mode: difference;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.cursor.is-visible { opacity: 1; }
+.cursor__dot,
+.cursor__ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-radius: 999px;
+  will-change: transform;
+}
+.cursor__dot { width: 6px; height: 6px; background: #fff; }
+.cursor__ring {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgb(255 255 255 / 0.75);
+  display: grid;
+  place-items: center;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.3s ease;
+}
+.cursor__label {
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+.cursor[data-state="link"] .cursor__ring { width: 52px; height: 52px; }
+.cursor[data-state="drag"] .cursor__ring,
+.cursor[data-state="pan"] .cursor__ring {
+  width: 62px;
+  height: 62px;
+  border-color: rgb(255 255 255 / 0.95);
+}
+.cursor[data-state="drag"] .cursor__label,
+.cursor[data-state="pan"] .cursor__label { opacity: 1; }
+.cursor[data-state="pan"] .cursor__label { font-size: 0.9rem; letter-spacing: 0; }
+/* No cursor layer at all on coarse pointers — it is never built there either. */
+@media (pointer: coarse) { .cursor { display: none; } }
+
 /* -----------------------------------------------------------------------------
    REDUCED MOTION — mandatory kill switch. The JS layer already skips every scene
    under reduce (no from-states, no Lenis, no Draggable, no marquee), so content
@@ -842,4 +1082,27 @@ body::after {
      begins at the hero. The About turntable collapses to its frame-0 poster
      (the canvas is never drawn because the JS layer returns early). */
   #opening { display: none !important; }
+
+  /* The scroll guidance lives inside #opening, so it is already gone with it.
+     These rules make the intent explicit and cover a manual theme/media override:
+     the arrow does not bob, the prompt does not pulse, nothing micro-moves. */
+  .guide__arrow,
+  .guide__prompt.is-urging { animation: none !important; transform: none !important; }
+
+  /* First-load curtain: main.ts removes it outright under reduce, so it is never
+     animated. Belt: no beat, no fade, and it can never be left covering the page. */
+  .preloader { display: none !important; }
+  .preloader__mark { animation: none !important; }
+
+  /* Hover choreography collapses to plain state changes (the transitions above are
+     already reduced to ~0ms; these keep the resting geometry honest). */
+  .roll { overflow: visible; }
+  .roll__t + .roll__t { display: none; }
+  .persona__item::after,
+  .work::after,
+  .nav__links a::after { display: none; }
+  .work:hover .work__title { letter-spacing: inherit; }
+
+  /* Custom cursor is never constructed under reduce (initMotion returns first). */
+  .cursor { display: none !important; }
 }

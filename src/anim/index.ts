@@ -130,6 +130,8 @@ export function initMotion() {
         // scrub the inner track, recompute distance on refresh.
         scene.classList.add('is-pan')
         track.classList.add('is-horizontal')
+        // Tell the custom cursor this region reads horizontally.
+        scene.dataset.cursor = 'pan'
         const distance = () => Math.max(0, track.scrollWidth - window.innerWidth)
         gsap.to(track, {
           x: () => -distance(),
@@ -147,6 +149,7 @@ export function initMotion() {
         cleanupWorks = () => {
           scene.classList.remove('is-pan')
           track.classList.remove('is-horizontal')
+          delete scene.dataset.cursor
           gsap.set(track, { clearProps: 'transform' })
         }
       } else {
@@ -222,9 +225,15 @@ export function initMotion() {
       }
       return true // still hidden and off-screen — keep watching
     })
+    sweepHeadings()
   }
   lenis.on('scroll', sweepReveal)
   ScrollTrigger.addEventListener('refresh', sweepReveal)
+
+  // ---- Pointer-driven scenes (no font dependency) --------------------------
+  initRollover()
+  initMagnetic()
+  initCustomCursor()
 
   // ---- Font-dependent scenes: hero intro (SplitText) + draggable mascot ----
   document.fonts.ready.then(() => {
@@ -234,6 +243,10 @@ export function initMotion() {
     // already scrolled it past the 0.82 mark while the fonts were still loading.
     const hasOpening = !!document.querySelector('#opening .opening__canvas')
     if (!hasOpening || heroHandoff.fired) heroTl.play()
+
+    // SplitText measures glyph boxes, so both of these must wait for the webfonts.
+    splitHeadings()
+    mottoGlow()
 
     mascotDraggable(lenis)
     ScrollTrigger.refresh()
@@ -268,7 +281,10 @@ function initImageSequences(): ScrubSequenceHandle[] {
   const opening = document.querySelector<HTMLElement>('#opening')
   const openingCanvas = opening?.querySelector<HTMLCanvasElement>('.opening__canvas')
   if (intro && opening && openingCanvas) {
-    const hint = opening.querySelector<HTMLElement>('.opening__hint')
+    const guide = opening.querySelector<HTMLElement>('.opening__guide')
+    const prompt = opening.querySelector<HTMLElement>('.guide__prompt')
+    const bar = opening.querySelector<HTMLElement>('.guide__bar')
+    const barFill = opening.querySelector<HTMLElement>('.guide__bar-fill')
     const melt = opening.querySelector<HTMLElement>('.opening__melt')
 
     // ---- OVERLAY LIFECYCLE (p3.9) ------------------------------------------
@@ -349,85 +365,148 @@ function initImageSequences(): ScrubSequenceHandle[] {
     }
     guardScrollPosition()
     openingLifecycle.guardScrollPosition = guardScrollPosition
-    handles.push(
-      createScrubSequence({
-        urls: seqUrls('/assets/seq/drop/drop_', 120),
-        canvas: openingCanvas,
-        preload: 'immediate',
-        // Narrative pacing (Fix A): give the collision (frames ~35-50), the
-        // recovery (~55-75) and the eye-zoom-to-white climax (~90-119) more of
-        // the scroll distance than a flat mapping would, so the story reads.
-        // Piecewise-linear control points map scroll progress -> frame progress.
-        progressMap: makeBeatMap(DROP_BEATS),
-        scrollTrigger: {
-          trigger: intro,
-          start: 'top top',
-          // Restored to ~190% (Fix A): with the beat map the distance now feels
-          // measured rather than rushed. `scrub: 1` keeps the smoothing.
-          end: '+=190%',
-          // Pin the intro STAGE, not just the opening — the hero must stay put
-          // underneath so the fading overlay reveals it in place.
-          pin: intro,
-          scrub: 1,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          // This is the TOPMOST pin but it is created AFTER the Works pan pin
-          // (which lives inside the matchMedia scenes above). A higher
-          // refreshPriority forces this spacer to be inserted first on refresh,
-          // so the Works pin measures its start with this spacer already in
-          // place — without it the two pins race and the Works pin can end up
-          // with a stale/zero start and never pin.
-          refreshPriority: 1,
-          // Guard (a) — the pin has been passed. Whatever the sequence managed to
-          // load, the curtain is done: retire it. This is the single most
-          // important guarantee, and it is entirely independent of image loading.
-          onLeave: () => retireOverlay(300),
-          // Scrolling back up into the sequence brings the curtain back.
-          onEnterBack: () => rearmOverlay(),
-        },
-        // FRAME-KEYED HANDOFF (p3.8). The fade is driven by `drawn` — the frame
-        // actually painted on the canvas — never by scroll progress. Under scrub
-        // smoothing and load latency the progress runs ahead of the pixels, so a
-        // progress-keyed fade began while a DARK iris frame was still on screen,
-        // producing the muddy half-transparent overlap. Keying to drawn pixels
-        // makes the handoff correct at any scroll speed.
-        onUpdate: (p, _wanted, drawn) => {
-          lastDrawn = drawn
 
-          // Hint pill fades out once the user has clearly started scrolling.
-          // (Cosmetic and monotonic in p — safe to keep progress-keyed.)
-          if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
+    // ---- SCROLL GUIDANCE (p4a) ----------------------------------------------
+    // The intro is a pinned scrub: nothing happens until the reader scrolls, and
+    // a still first frame gives them no reason to believe scrolling is the point.
+    // Three cues, escalating, all retired on the first real scroll:
+    //   t+0.0s  the arrow + instruction are already on screen
+    //   t+1.2s  the sequence itself starts breathing (frames 0-6, slow yoyo) —
+    //           the strongest signal, because it proves the image is alive
+    //   t+3.0s  the prompt takes a soft emphasis pulse
+    // A hairline bar tracks progress through the pinned span, because the pin
+    // hides what the native scrollbar would otherwise say about how long this is.
+    let started = false
+    let idleTween: gsap.core.Tween | null = null
+    let nudgeTimer = 0
+    let urgeTimer = 0
+    const idleDrive = { f: 0 }
 
-          // Hero entrance leads the handoff: whichever comes first, the climax
-          // frames being on screen or the scroll passing 0.82. Progress-keyed as
-          // well as frame-keyed, so a stalled download can never withhold the hero.
-          if (drawn >= HANDOFF.heroFrame || p >= HANDOFF.heroProgress) heroHandoff.fire()
+    const stopGuidance = () => {
+      if (started) return
+      started = true
+      window.clearTimeout(nudgeTimer)
+      window.clearTimeout(urgeTimer)
+      idleTween?.kill()
+      idleTween = null
+      prompt?.classList.remove('is-urging')
+      guide?.classList.add('is-started')
+      window.removeEventListener('wheel', stopGuidance)
+      window.removeEventListener('touchstart', stopGuidance)
+      window.removeEventListener('keydown', stopGuidance)
+    }
+    // Direct input listeners as a belt for the progress check below (they are
+    // input events, not scroll events — the scroll ban in §5.D still holds).
+    window.addEventListener('wheel', stopGuidance, { passive: true, once: true })
+    window.addEventListener('touchstart', stopGuidance, { passive: true, once: true })
+    window.addEventListener('keydown', stopGuidance, { once: true })
 
-          if (retired) return
+    const armGuidance = () => {
+      if (started || window.scrollY > 4) return
+      nudgeTimer = window.setTimeout(() => {
+        if (started) return
+        idleTween = gsap.to(idleDrive, {
+          f: 6,
+          duration: 1.7,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: -1,
+          onUpdate: () => dropHandle?.setFrame?.(idleDrive.f),
+        })
+      }, 1200)
+      urgeTimer = window.setTimeout(() => {
+        if (!started) prompt?.classList.add('is-urging')
+      }, 3000)
+    }
+    if (document.documentElement.classList.contains('is-loaded')) armGuidance()
+    else window.addEventListener('akiha:loaded', armGuidance, { once: true })
 
-          // Guard (b) — stall watchdog. Once the scroll is essentially through the
-          // sequence, the overlay has a strict deadline: if the drawn frame has not
-          // reached the end of the fade within 600ms (slow connection, frames still
-          // downloading), retire it anyway. Unlike the old p>=0.995 check this does
-          // NOT require further scrolling — it fires on a timer, so stopping
-          // mid-scroll can no longer leave the curtain up.
-          if (p >= HANDOFF.watchdogProgress) {
-            if (!watchdogId && drawn < HANDOFF.fadeEnd) {
-              watchdogId = window.setTimeout(() => {
-                watchdogId = 0
-                if (lastDrawn < HANDOFF.fadeEnd) retireOverlay(400)
-              }, HANDOFF.watchdogMs)
-            }
-          } else {
-            // Scrolled back out of the danger zone — cancel the deadline.
-            clearWatchdog()
+    const dropHandle = createScrubSequence({
+      urls: seqUrls('/assets/seq/drop/drop_', 120),
+      canvas: openingCanvas,
+      preload: 'immediate',
+      // Narrative pacing (Fix A): give the collision (frames ~35-50), the
+      // recovery (~55-75) and the eye-zoom-to-white climax (~90-119) more of
+      // the scroll distance than a flat mapping would, so the story reads.
+      // Piecewise-linear control points map scroll progress -> frame progress.
+      progressMap: makeBeatMap(DROP_BEATS),
+      scrollTrigger: {
+        trigger: intro,
+        start: 'top top',
+        // Restored to ~190% (Fix A): with the beat map the distance now feels
+        // measured rather than rushed. `scrub: 1` keeps the smoothing.
+        end: '+=190%',
+        // Pin the intro STAGE, not just the opening — the hero must stay put
+        // underneath so the fading overlay reveals it in place.
+        pin: intro,
+        scrub: 1,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        // This is the TOPMOST pin but it is created AFTER the Works pan pin
+        // (which lives inside the matchMedia scenes above). A higher
+        // refreshPriority forces this spacer to be inserted first on refresh,
+        // so the Works pin measures its start with this spacer already in
+        // place — without it the two pins race and the Works pin can end up
+        // with a stale/zero start and never pin.
+        refreshPriority: 1,
+        // Guard (a) — the pin has been passed. Whatever the sequence managed to
+        // load, the curtain is done: retire it. This is the single most
+        // important guarantee, and it is entirely independent of image loading.
+        onLeave: () => retireOverlay(300),
+        // Scrolling back up into the sequence brings the curtain back.
+        onEnterBack: () => rearmOverlay(),
+      },
+      // FRAME-KEYED HANDOFF (p3.8). The fade is driven by `drawn` — the frame
+      // actually painted on the canvas — never by scroll progress. Under scrub
+      // smoothing and load latency the progress runs ahead of the pixels, so a
+      // progress-keyed fade began while a DARK iris frame was still on screen,
+      // producing the muddy half-transparent overlap. Keying to drawn pixels
+      // makes the handoff correct at any scroll speed.
+      onUpdate: (p, _wanted, drawn) => {
+        lastDrawn = drawn
+
+        // First real movement retires every pre-scroll cue (idle micro-motion,
+        // urge pulse, listeners) — the reader has understood the interaction.
+        if (p > 0.002) stopGuidance()
+
+        // The prompt leaves as soon as scrolling has clearly begun; the progress
+        // bar stays for the whole pinned span (it is a position readout, not a
+        // prompt) and only fades out over the final beats.
+        // Cosmetic and monotonic in p — safe to keep progress-keyed.
+        if (prompt) prompt.style.opacity = String(clamp01((0.08 - p) / 0.06))
+        if (barFill) barFill.style.transform = `scaleX(${clamp01(p)})`
+        if (bar) bar.style.opacity = String(clamp01((1 - p) / 0.1))
+
+        // Hero entrance leads the handoff: whichever comes first, the climax
+        // frames being on screen or the scroll passing 0.82. Progress-keyed as
+        // well as frame-keyed, so a stalled download can never withhold the hero.
+        if (drawn >= HANDOFF.heroFrame || p >= HANDOFF.heroProgress) heroHandoff.fire()
+
+        if (retired) return
+
+        // Guard (b) — stall watchdog. Once the scroll is essentially through the
+        // sequence, the overlay has a strict deadline: if the drawn frame has not
+        // reached the end of the fade within 600ms (slow connection, frames still
+        // downloading), retire it anyway. Unlike the old p>=0.995 check this does
+        // NOT require further scrolling — it fires on a timer, so stopping
+        // mid-scroll can no longer leave the curtain up.
+        if (p >= HANDOFF.watchdogProgress) {
+          if (!watchdogId && drawn < HANDOFF.fadeEnd) {
+            watchdogId = window.setTimeout(() => {
+              watchdogId = 0
+              if (lastDrawn < HANDOFF.fadeEnd) retireOverlay(400)
+            }, HANDOFF.watchdogMs)
           }
+        } else {
+          // Scrolled back out of the danger zone — cancel the deadline.
+          clearWatchdog()
+        }
 
-          // Normal (pretty) path: two-stage melt keyed to the drawn frame.
-          if (drawn >= 0) applyForFrame(drawn)
-        },
-      }),
-    )
+        // Normal (pretty) path: two-stage melt keyed to the drawn frame.
+        if (drawn >= 0) applyForFrame(drawn)
+      },
+    })
+    handles.push(dropHandle)
   }
 
   // Scene 10 — About turntable: autoplaying 2x-speed loop (20fps over a 10fps
@@ -437,12 +516,14 @@ function initImageSequences(): ScrubSequenceHandle[] {
   const about = document.querySelector<HTMLElement>('#about')
   const turnCanvas = about?.querySelector<HTMLCanvasElement>('.about__turntable-canvas')
   if (about && turnCanvas) {
-    const turntable = turnCanvas.closest<HTMLElement>('.about__turntable') ?? about
     handles.push(
       createLoopSequence({
         urls: seqUrls('/assets/seq/turn/turn_', 100),
         canvas: turnCanvas,
-        trigger: turntable,
+        // Gate on the SECTION, not the figure: the turntable is now sticky inside
+        // the About spread, so its own static offset no longer describes how long
+        // it is actually on screen. #about does.
+        trigger: about,
         fps: 20,
       }),
     )
@@ -557,6 +638,232 @@ function heroIntro(): gsap.core.Timeline {
 }
 
 // -----------------------------------------------------------------------------
+// KINETIC TYPOGRAPHY (p4a)
+//
+// Section headings get the SAME vocabulary as the hero name — SplitText chars
+// rising out of a per-line mask — so the page has one typographic gesture rather
+// than a hero move plus a generic fade for everything else. Justification: this
+// is hierarchy, it marks "a new chapter of the document has begun".
+//
+// The tweens are built PAUSED (so the from-state renders and the heading is
+// pre-hidden) and played by a ScrollTrigger. Because a heading can be created
+// out of document order relative to two pin spacers, each one is also registered
+// with the same self-healing net that protects the fade reveals: if a heading is
+// in the viewport and its tween never started, the net plays it.
+// -----------------------------------------------------------------------------
+interface PendingHeading {
+  el: HTMLElement
+  play: () => void
+}
+let pendingHeadings: PendingHeading[] = []
+
+function splitHeadings() {
+  gsap.utils.toArray<HTMLElement>('[data-animate="split-h"]').forEach((el) => {
+    const split = SplitText.create(el, { type: 'lines,chars', mask: 'lines' })
+    if (!split.chars.length) return
+    const tl = gsap.from(split.chars, {
+      yPercent: 115,
+      duration: 0.85,
+      stagger: 0.032,
+      ease: 'power4.out',
+      paused: true,
+    })
+    let done = false
+    const play = () => {
+      if (done) return
+      done = true
+      tl.play()
+    }
+    ScrollTrigger.create({ trigger: el, start: 'top 88%', once: true, onEnter: play })
+    pendingHeadings.push({ el, play })
+  })
+  sweepHeadings()
+}
+
+/** Net for the split headings — mirrors sweepReveal, self-disabling. */
+function sweepHeadings() {
+  if (!pendingHeadings.length) return
+  const vh = window.innerHeight
+  pendingHeadings = pendingHeadings.filter(({ el, play }) => {
+    const r = el.getBoundingClientRect()
+    if (r.top < vh && r.bottom > 0) {
+      play()
+      return false
+    }
+    return true
+  })
+}
+
+/**
+ * The vertical motto in the hero gutter lights up one character at a time as the
+ * reader scrolls out of the hero. Justification: storytelling — it turns a static
+ * label into a line that is being *written* as you leave, and it is the only
+ * scrub-driven type on the page besides the sequence itself.
+ */
+function mottoGlow() {
+  const el = document.querySelector<HTMLElement>('.hero__vlabel')
+  const aboutEl = document.querySelector('#about')
+  // Only exists >=1040px (see .hero__vlabel); splitting a display:none element
+  // would produce measurements that are wrong the moment it appears.
+  if (!el || !aboutEl || !window.matchMedia('(min-width: 1040px)').matches) return
+  const split = SplitText.create(el, { type: 'chars' })
+  if (!split.chars.length) return
+  gsap.fromTo(
+    split.chars,
+    { opacity: 0.18 },
+    {
+      opacity: 1,
+      ease: 'none',
+      stagger: { each: 0.6, from: 'start' },
+      scrollTrigger: { trigger: aboutEl, start: 'top bottom', end: 'top 60%', scrub: true },
+    },
+  )
+}
+
+// -----------------------------------------------------------------------------
+// ROLLOVER LABELS (p4a) — nav links and CTAs swap their own text on hover.
+// A duplicate of the label is stacked one line below and the pair is translated
+// by -100% inside an overflow clip. Built in JS so it exists only when motion is
+// on (under reduced motion initMotion returns early and the plain span stays).
+// The duplicate is aria-hidden so nothing is announced twice.
+// -----------------------------------------------------------------------------
+function initRollover() {
+  document.querySelectorAll<HTMLElement>('[data-roll]').forEach((el) => {
+    const text = el.textContent?.trim()
+    if (!text || el.classList.contains('roll')) return
+    el.textContent = ''
+    el.classList.add('roll')
+    const inner = document.createElement('span')
+    inner.className = 'roll__i'
+    const a = document.createElement('span')
+    a.className = 'roll__t'
+    a.textContent = text
+    const b = document.createElement('span')
+    b.className = 'roll__t'
+    b.setAttribute('aria-hidden', 'true')
+    b.textContent = text
+    inner.append(a, b)
+    el.append(inner)
+  })
+}
+
+// -----------------------------------------------------------------------------
+// MAGNETIC HOVER + PRESS (p4a) — buttons and chips lean toward the cursor.
+// Justification: feedback. It makes the hit target feel physical before the click.
+//
+// Discipline: pointer:fine only (a coarse pointer has no hover to lean into),
+// driven by gsap.quickTo so the value never round-trips through a framework or a
+// re-render, and clamped so the control cannot wander off its own layout box.
+// The press scale is done here rather than in CSS because the inline transform
+// GSAP writes would otherwise beat the `:active` rule.
+// -----------------------------------------------------------------------------
+function initMagnetic() {
+  if (!window.matchMedia('(pointer: fine)').matches) return
+  const clamp = gsap.utils.clamp(-1, 1)
+
+  document.querySelectorAll<HTMLElement>('.btn, .chip').forEach((el) => {
+    const pull = el.classList.contains('btn') ? 16 : 8
+    const xTo = gsap.quickTo(el, 'x', { duration: 0.5, ease: 'power3' })
+    const yTo = gsap.quickTo(el, 'y', { duration: 0.5, ease: 'power3' })
+
+    el.addEventListener('pointermove', (e) => {
+      const r = el.getBoundingClientRect()
+      xTo(clamp((e.clientX - (r.left + r.width / 2)) / (r.width / 2)) * pull)
+      yTo(clamp((e.clientY - (r.top + r.height / 2)) / (r.height / 2)) * pull)
+    })
+    el.addEventListener('pointerleave', () => {
+      xTo(0)
+      yTo(0)
+      gsap.to(el, { scale: 1, duration: 0.3, ease: 'power2.out' })
+    })
+    el.addEventListener('pointerdown', () => {
+      gsap.to(el, { scale: 0.95, duration: 0.12, ease: 'power2.out' })
+    })
+    el.addEventListener('pointerup', () => {
+      gsap.to(el, { scale: 1, duration: 0.45, ease: 'elastic.out(1, 0.5)' })
+    })
+  })
+}
+
+// -----------------------------------------------------------------------------
+// CUSTOM CURSOR (p4a) — explicitly requested, built with restraint.
+//
+// A small dot that tracks tightly plus a ring that lags, both in
+// mix-blend-mode: difference so they read on cream paper and on sumi alike. It
+// carries a context label where the page affords something non-obvious: DRAG on
+// the mascot, an arrow over the horizontally-panning works track, a wider ring
+// over links.
+//
+// Accessibility position: the NATIVE cursor is deliberately left visible. This
+// layer is decoration on top of it (pointer-events:none, aria-hidden), never a
+// replacement — so pointer precision, high-contrast modes and OS cursor settings
+// all keep working. It is never constructed on coarse pointers or under reduced
+// motion (initMotion returns before this).
+// -----------------------------------------------------------------------------
+function initCustomCursor() {
+  if (!window.matchMedia('(pointer: fine)').matches) return
+
+  const root = document.createElement('div')
+  root.className = 'cursor'
+  root.setAttribute('aria-hidden', 'true')
+  const ring = document.createElement('div')
+  ring.className = 'cursor__ring'
+  const label = document.createElement('span')
+  label.className = 'cursor__label'
+  ring.append(label)
+  const dot = document.createElement('div')
+  dot.className = 'cursor__dot'
+  root.append(ring, dot)
+  document.body.append(root)
+
+  // Parked well off-screen until the first real pointer move, so the layer can
+  // never contribute a stray box at the top-left corner.
+  gsap.set([ring, dot], { xPercent: -50, yPercent: -50, x: -200, y: -200 })
+  const dotX = gsap.quickTo(dot, 'x', { duration: 0.1, ease: 'power3' })
+  const dotY = gsap.quickTo(dot, 'y', { duration: 0.1, ease: 'power3' })
+  const ringX = gsap.quickTo(ring, 'x', { duration: 0.55, ease: 'power3' })
+  const ringY = gsap.quickTo(ring, 'y', { duration: 0.55, ease: 'power3' })
+
+  let shown = false
+  document.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return
+    if (!shown) {
+      shown = true
+      gsap.set([ring, dot], { x: e.clientX, y: e.clientY })
+      root.classList.add('is-visible')
+    }
+    dotX(e.clientX)
+    dotY(e.clientY)
+    ringX(e.clientX)
+    ringY(e.clientY)
+  })
+  document.addEventListener('pointerleave', () => root.classList.remove('is-visible'))
+  document.addEventListener('pointerenter', () => {
+    if (shown) root.classList.add('is-visible')
+  })
+
+  const LABELS: Record<string, string> = { drag: 'DRAG', pan: '→' }
+  let state = ''
+  const setState = (next: string) => {
+    if (next === state) return
+    state = next
+    root.dataset.state = next
+    label.textContent = LABELS[next] ?? ''
+  }
+
+  document.addEventListener('pointerover', (e) => {
+    const t = e.target as Element | null
+    if (!t || typeof t.closest !== 'function') return
+    const ctx = t.closest<HTMLElement>('[data-cursor]')
+    if (ctx?.dataset.cursor) {
+      setState(ctx.dataset.cursor)
+      return
+    }
+    setState(t.closest('a, button, .btn') ? 'link' : '')
+  })
+}
+
+// -----------------------------------------------------------------------------
 // Scene 6 — mascot is grab-and-throwable (Draggable + InertiaPlugin); on release
 // it springs elastically home. Idle micro-sway + grab cursor hint interactivity.
 // -----------------------------------------------------------------------------
@@ -566,6 +873,7 @@ function mascotDraggable(lenis: Lenis) {
   if (!frame || !heroEl) return
 
   frame.classList.add('is-draggable')
+  frame.dataset.cursor = 'drag'
 
   const sway = gsap.to(frame, {
     rotation: 1.6,
@@ -587,6 +895,20 @@ function mascotDraggable(lenis: Lenis) {
     })
   }
 
+  // Click (a press that did NOT become a drag) squashes and springs back.
+  // Justification: feedback — the mascot is the one thing on the page that
+  // invites poking, so it has to answer. Scale only, so it composes with the x/y
+  // Draggable owns and never fights it.
+  let boing: gsap.core.Timeline | null = null
+  const bounce = () => {
+    boing?.kill()
+    boing = gsap
+      .timeline({ onComplete: () => sway.restart(true) })
+      .to(frame, { scaleX: 1.09, scaleY: 0.9, duration: 0.13, ease: 'power2.out' })
+      .to(frame, { scaleX: 0.95, scaleY: 1.07, duration: 0.16, ease: 'power1.inOut' })
+      .to(frame, { scaleX: 1, scaleY: 1, duration: 0.85, ease: 'elastic.out(1, 0.32)' })
+  }
+
   Draggable.create(frame, {
     type: 'x,y',
     bounds: heroEl,
@@ -599,6 +921,7 @@ function mascotDraggable(lenis: Lenis) {
     },
     onRelease: () => lenis.start(),
     onThrowComplete: goHome,
+    onClick: bounce,
   })
 }
 

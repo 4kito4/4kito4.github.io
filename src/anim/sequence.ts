@@ -68,6 +68,11 @@ export interface ScrubSequenceOptions {
 
 export interface ScrubSequenceHandle {
   destroy(): void
+  /** Paint an explicit frame, independent of scroll. Used only for the pre-scroll
+   *  idle micro-motion on the opening: while the page has not been scrolled the
+   *  ScrollTrigger never updates, so nothing would draw and the sequence would
+   *  read as a still image. Any real scroll immediately overwrites this. */
+  setFrame?(frame: number): void
 }
 
 export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHandle {
@@ -238,6 +243,13 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
   if (opts.preload !== 'onEnter') void preloadFrom(1)
 
   return {
+    setFrame(frame: number) {
+      const f = Math.min(count - 1, Math.max(0, Math.round(frame)))
+      if (f === wantedFrame && drawnFrame === f) return
+      wantedFrame = f
+      if (!loaded[f]) void loadFrame(f)
+      scheduleDraw()
+    },
     destroy() {
       ro.disconnect()
       if (rafId) cancelAnimationFrame(rafId)

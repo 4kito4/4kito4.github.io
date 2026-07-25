@@ -11,8 +11,8 @@ export const heroHTML = /* html */ `
         化学工学を専攻しながら、生成AIで身の回りの課題を解いています。「つくって、つなげる」が信条です。
       </p>
       <div class="hero__cta" data-animate="hero-cta">
-        <a href="#works" class="btn btn--primary">制作物を見る <span aria-hidden="true">&rarr;</span></a>
-        <a href="#activity" class="btn btn--ghost">活動を見る</a>
+        <a href="#works" class="btn btn--primary"><span data-roll>制作物を見る</span> <span aria-hidden="true">&rarr;</span></a>
+        <a href="#activity" class="btn btn--ghost"><span data-roll>活動を見る</span></a>
       </div>
     </div>
 

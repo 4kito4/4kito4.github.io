@@ -29,8 +29,23 @@ export const openingHTML = /* html */ `
          itself fades. Without it, dark mode showed a white-to-dark colour gap. -->
     <div class="opening__melt"></div>
 
-    <p class="opening__hint">
-      <span class="opening__hint-pill">スクロールで始める</span>
-    </p>
+    <!-- Scroll guidance. Three layers, all decorative:
+         1. a bouncing arrow + a plain instruction, so a first-time visitor is told
+            what to do rather than nudged;
+         2. a hairline progress bar showing how far through the pinned intro the
+            reader is (the pin swallows the native scrollbar's meaning, so without
+            this the scroll feels unbounded);
+         3. (JS) an idle micro-oscillation of frames 0-6 after 1.2s of no input,
+            which makes the still frame read as a *moving* thing.
+         All of it is killed the moment a real scroll starts. -->
+    <div class="opening__guide">
+      <div class="guide__prompt">
+        <span class="guide__arrow" aria-hidden="true"></span>
+        <span class="guide__label">スクロールして物語をすすめる</span>
+      </div>
+      <div class="guide__bar">
+        <span class="guide__bar-fill"></span>
+      </div>
+    </div>
   </div>
 `

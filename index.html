@@ -12,13 +12,29 @@
     <title>長谷川耀俊 / Aki_Ha Portfolio</title>
   </head>
   <body>
+    <!-- First-load curtain. Paper-coloured, with the mascot silhouette beating on
+         it. It is dismissed by REAL readiness (webfonts + drop frame 0), capped at
+         1.5s, and skipped outright when both are already cached — there is no fake
+         progress bar. Removed instantly under reduced motion. See src/main.ts. -->
+    <div id="preloader" class="preloader" aria-hidden="true">
+      <img
+        class="preloader__mark"
+        src="/assets/aki_ha_silhouette.png"
+        alt=""
+        width="110"
+        height="110"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </div>
+
     <header class="nav">
       <nav class="u-container nav__inner" aria-label="メインナビゲーション">
-        <a href="#hero" class="nav__mark">AKI_HA</a>
+        <a href="#hero" class="nav__mark"><span data-roll>AKI_HA</span></a>
         <div class="nav__links">
-          <a href="#about">自己紹介</a>
-          <a href="#activity">活動</a>
-          <a href="#works">制作物</a>
+          <a href="#about"><span data-roll>自己紹介</span></a>
+          <a href="#activity"><span data-roll>活動</span></a>
+          <a href="#works"><span data-roll>制作物</span></a>
         </div>
       </nav>
     </header>
