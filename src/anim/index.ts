@@ -33,6 +33,12 @@ const heroHandoff = {
   },
 }
 
+// Re-checked after layout settles: the browser can apply scroll restoration
+// asynchronously, so the position at init is not final. Set by the opening scene.
+const openingLifecycle = {
+  guardScrollPosition: null as (() => void) | null,
+}
+
 export function initMotion() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -233,8 +239,12 @@ export function initMotion() {
     ScrollTrigger.refresh()
     document.documentElement.classList.remove('is-animating')
     // Backstop after layout settles: catch anything already in view that no
-    // ScrollTrigger claimed (the `refresh` above also invokes sweepReveal).
-    gsap.delayedCall(0.3, sweepReveal)
+    // ScrollTrigger claimed (the `refresh` above also invokes sweepReveal), and
+    // re-check the opening against the (possibly restored) scroll position.
+    gsap.delayedCall(0.3, () => {
+      sweepReveal()
+      openingLifecycle.guardScrollPosition?.()
+    })
   })
 }
 
@@ -260,10 +270,85 @@ function initImageSequences(): ScrubSequenceHandle[] {
   if (intro && opening && openingCanvas) {
     const hint = opening.querySelector<HTMLElement>('.opening__hint')
     const melt = opening.querySelector<HTMLElement>('.opening__melt')
-    // Set once the overlay has been force-finished by the flick insurance, so the
-    // per-frame writes below stop fighting the quick-fade tween. Cleared if the
-    // user scrolls back up into the sequence.
-    let handoffForced = false
+
+    // ---- OVERLAY LIFECYCLE (p3.9) ------------------------------------------
+    // HARD RULE: the overlay must never be able to sit on top of the page. It is
+    // a decorative curtain over the real hero, so a stuck overlay hides the whole
+    // site (a near-black sheet in dark mode, a dim veil at partial opacity).
+    // Disappearance is therefore guaranteed by guards that do NOT depend on the
+    // image sequence loading at all — correctness beats the pretty melt.
+    let retired = false
+    let watchdogId = 0
+    let lastDrawn = -1
+
+    const clearWatchdog = () => {
+      if (watchdogId) {
+        clearTimeout(watchdogId)
+        watchdogId = 0
+      }
+    }
+
+    /** Paint the overlay for a given drawn frame (the normal, pretty path). */
+    const applyForFrame = (drawn: number) => {
+      if (melt) {
+        melt.style.opacity = String(
+          clamp01((drawn - HANDOFF.meltStart) / (HANDOFF.meltEnd - HANDOFF.meltStart)),
+        )
+      }
+      opening.style.opacity = String(
+        1 - clamp01((drawn - HANDOFF.meltEnd) / (HANDOFF.fadeEnd - HANDOFF.meltEnd)),
+      )
+    }
+
+    /** Retire the overlay for good (until an explicit re-arm). Fades within
+     *  `durationMs`, then takes it out of the layer entirely.
+     *
+     *  Deliberately driven by a CSS transition + setTimeout rather than gsap:
+     *  this is the safety net, so it must not depend on the very animation loop
+     *  that may itself be stalled (a paused/throttled rAF, a ticker starved by a
+     *  background tab, or a gsap failure). CSS + timers keep working regardless. */
+    const retireOverlay = (durationMs = 350) => {
+      if (retired) return
+      retired = true
+      clearWatchdog()
+      // Melt to flat paper first, so when the frames DID arrive the fade is still
+      // paper-over-paper. When they didn't, a brief blink beats a stuck sheet.
+      if (melt) melt.style.opacity = '1'
+      gsap.killTweensOf(opening)
+      opening.style.transition = durationMs > 0 ? `opacity ${durationMs}ms ease-out` : ''
+      opening.style.opacity = '0'
+      window.setTimeout(() => {
+        if (!retired) return
+        opening.style.visibility = 'hidden'
+        opening.style.transition = ''
+      }, durationMs + 60)
+    }
+
+    /** Re-arm when the user scrolls back UP into the sequence. Only ever called
+     *  from onEnterBack, so a retired overlay can never resurrect on its own. */
+    const rearmOverlay = () => {
+      if (!retired) return
+      retired = false
+      gsap.killTweensOf(opening)
+      opening.style.transition = ''
+      opening.style.visibility = ''
+      if (lastDrawn >= 0) applyForFrame(lastDrawn)
+      else {
+        if (melt) melt.style.opacity = '0'
+        opening.style.opacity = '1'
+      }
+    }
+
+    // Guard (c) — scroll restoration. If the browser restores a mid-page scroll
+    // position, the pin may never run its update cycle, so nothing would ever
+    // fade the overlay out. Past the intro's scroll span there is no sequence
+    // left to show: retire it instantly, with no fade.
+    const introScrollSpan = () => window.innerHeight * 1.9
+    const guardScrollPosition = () => {
+      if (!retired && window.scrollY > introScrollSpan()) retireOverlay(0)
+    }
+    guardScrollPosition()
+    openingLifecycle.guardScrollPosition = guardScrollPosition
     handles.push(
       createScrubSequence({
         urls: seqUrls('/assets/seq/drop/drop_', 120),
@@ -293,6 +378,12 @@ function initImageSequences(): ScrubSequenceHandle[] {
           // place — without it the two pins race and the Works pin can end up
           // with a stale/zero start and never pin.
           refreshPriority: 1,
+          // Guard (a) — the pin has been passed. Whatever the sequence managed to
+          // load, the curtain is done: retire it. This is the single most
+          // important guarantee, and it is entirely independent of image loading.
+          onLeave: () => retireOverlay(300),
+          // Scrolling back up into the sequence brings the curtain back.
+          onEnterBack: () => rearmOverlay(),
         },
         // FRAME-KEYED HANDOFF (p3.8). The fade is driven by `drawn` — the frame
         // actually painted on the canvas — never by scroll progress. Under scrub
@@ -301,46 +392,39 @@ function initImageSequences(): ScrubSequenceHandle[] {
         // producing the muddy half-transparent overlap. Keying to drawn pixels
         // makes the handoff correct at any scroll speed.
         onUpdate: (p, _wanted, drawn) => {
+          lastDrawn = drawn
+
           // Hint pill fades out once the user has clearly started scrolling.
           // (Cosmetic and monotonic in p — safe to keep progress-keyed.)
           if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
 
           // Hero entrance leads the handoff: whichever comes first, the climax
-          // frames being on screen or the scroll passing 0.82.
+          // frames being on screen or the scroll passing 0.82. Progress-keyed as
+          // well as frame-keyed, so a stalled download can never withhold the hero.
           if (drawn >= HANDOFF.heroFrame || p >= HANDOFF.heroProgress) heroHandoff.fire()
 
-          // Scrolling back up into the sequence re-arms the normal path.
-          if (handoffForced && drawn >= 0 && drawn < HANDOFF.meltStart) {
-            handoffForced = false
-            gsap.killTweensOf(opening)
-          }
-          if (handoffForced) return
+          if (retired) return
 
-          if (drawn >= 0) {
-            // Stage 1 — colour melt: the drawn white climax resolves into the
-            // theme's own paper colour on top of the canvas.
-            if (melt) {
-              melt.style.opacity = String(
-                clamp01((drawn - HANDOFF.meltStart) / (HANDOFF.meltEnd - HANDOFF.meltStart)),
-              )
+          // Guard (b) — stall watchdog. Once the scroll is essentially through the
+          // sequence, the overlay has a strict deadline: if the drawn frame has not
+          // reached the end of the fade within 600ms (slow connection, frames still
+          // downloading), retire it anyway. Unlike the old p>=0.995 check this does
+          // NOT require further scrolling — it fires on a timer, so stopping
+          // mid-scroll can no longer leave the curtain up.
+          if (p >= HANDOFF.watchdogProgress) {
+            if (!watchdogId && drawn < HANDOFF.fadeEnd) {
+              watchdogId = window.setTimeout(() => {
+                watchdogId = 0
+                if (lastDrawn < HANDOFF.fadeEnd) retireOverlay(400)
+              }, HANDOFF.watchdogMs)
             }
-            // Stage 2 — overlay dissolve: only AFTER the melt has fully landed, so
-            // both sides of the cross-fade are a flat --paper and no seam of any
-            // kind can show, at any scroll speed or in either theme.
-            opening.style.opacity = String(
-              1 - clamp01((drawn - HANDOFF.meltEnd) / (HANDOFF.fadeEnd - HANDOFF.meltEnd)),
-            )
+          } else {
+            // Scrolled back out of the danger zone — cancel the deadline.
+            clearWatchdog()
           }
 
-          // Insurance for a hard flick: the pin is releasing (p≈1) but the drawn
-          // frame never reached the melt window (frames still decoding). Finish
-          // the overlay off in one quick fade so the worst case is a brief blink,
-          // never a stalled dark frame sitting over the hero.
-          if (p >= HANDOFF.releaseProgress && drawn < HANDOFF.meltEnd) {
-            handoffForced = true
-            if (melt) melt.style.opacity = '1'
-            gsap.to(opening, { opacity: 0, duration: 0.15, ease: 'power1.out', overwrite: true })
-          }
+          // Normal (pretty) path: two-stage melt keyed to the drawn frame.
+          if (drawn >= 0) applyForFrame(drawn)
         },
       }),
     )
@@ -386,7 +470,11 @@ const HANDOFF = {
   fadeEnd: 119,
   heroFrame: 96,
   heroProgress: 0.82,
-  releaseProgress: 0.995,
+  /** Scroll progress at which the overlay's retirement deadline starts ticking. */
+  watchdogProgress: 0.95,
+  /** Grace period (ms) for the frames to catch up before the overlay is retired
+   *  regardless of what has loaded. */
+  watchdogMs: 600,
 } as const
 
 // -----------------------------------------------------------------------------

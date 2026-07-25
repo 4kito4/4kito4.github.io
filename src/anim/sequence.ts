@@ -34,6 +34,12 @@ export interface ScrubTriggerVars {
    *  are created later, so their spacer lands before lower pins measure their
    *  start. See the opening pin in src/anim/index.ts. */
   refreshPriority?: number
+  /** Fired when the scroll leaves past the END of the trigger. The engine does
+   *  NOT overwrite these (unlike onUpdate/onRefresh), so callers can use them for
+   *  lifecycle guarantees — e.g. force-retiring the opening overlay. */
+  onLeave?: () => void
+  /** Fired when scrolling back INTO the trigger from below (re-arm hook). */
+  onEnterBack?: () => void
 }
 
 export interface ScrubSequenceOptions {
