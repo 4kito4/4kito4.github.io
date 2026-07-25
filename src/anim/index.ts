@@ -259,6 +259,11 @@ function initImageSequences(): ScrubSequenceHandle[] {
   const openingCanvas = opening?.querySelector<HTMLCanvasElement>('.opening__canvas')
   if (intro && opening && openingCanvas) {
     const hint = opening.querySelector<HTMLElement>('.opening__hint')
+    const melt = opening.querySelector<HTMLElement>('.opening__melt')
+    // Set once the overlay has been force-finished by the flick insurance, so the
+    // per-frame writes below stop fighting the quick-fade tween. Cleared if the
+    // user scrolls back up into the sequence.
+    let handoffForced = false
     handles.push(
       createScrubSequence({
         urls: seqUrls('/assets/seq/drop/drop_', 120),
@@ -289,18 +294,53 @@ function initImageSequences(): ScrubSequenceHandle[] {
           // with a stale/zero start and never pin.
           refreshPriority: 1,
         },
-        onUpdate: (p) => {
-          // Seamless handoff (Fix C): fade the whole opening overlay out across
-          // the final beats. By p=1 the overlay is fully transparent, so the
-          // white climax has dissolved into the cream hero rising underneath —
-          // the pin then releases on a continuous image. Held at 1 until 0.85 so
-          // the eye-zoom-to-white climax (frames ~104-119) is never covered.
-          opening.style.opacity = String(1 - clamp01((p - 0.85) / 0.15))
+        // FRAME-KEYED HANDOFF (p3.8). The fade is driven by `drawn` — the frame
+        // actually painted on the canvas — never by scroll progress. Under scrub
+        // smoothing and load latency the progress runs ahead of the pixels, so a
+        // progress-keyed fade began while a DARK iris frame was still on screen,
+        // producing the muddy half-transparent overlap. Keying to drawn pixels
+        // makes the handoff correct at any scroll speed.
+        onUpdate: (p, _wanted, drawn) => {
           // Hint pill fades out once the user has clearly started scrolling.
+          // (Cosmetic and monotonic in p — safe to keep progress-keyed.)
           if (hint) hint.style.opacity = String(clamp01((0.08 - p) / 0.06))
-          // Hand off to the hero entrance during the fade, so the name is already
-          // rising underneath as the overlay clears — not after the pin releases.
-          if (p >= 0.82) heroHandoff.fire()
+
+          // Hero entrance leads the handoff: whichever comes first, the climax
+          // frames being on screen or the scroll passing 0.82.
+          if (drawn >= HANDOFF.heroFrame || p >= HANDOFF.heroProgress) heroHandoff.fire()
+
+          // Scrolling back up into the sequence re-arms the normal path.
+          if (handoffForced && drawn >= 0 && drawn < HANDOFF.meltStart) {
+            handoffForced = false
+            gsap.killTweensOf(opening)
+          }
+          if (handoffForced) return
+
+          if (drawn >= 0) {
+            // Stage 1 — colour melt: the drawn white climax resolves into the
+            // theme's own paper colour on top of the canvas.
+            if (melt) {
+              melt.style.opacity = String(
+                clamp01((drawn - HANDOFF.meltStart) / (HANDOFF.meltEnd - HANDOFF.meltStart)),
+              )
+            }
+            // Stage 2 — overlay dissolve: only AFTER the melt has fully landed, so
+            // both sides of the cross-fade are a flat --paper and no seam of any
+            // kind can show, at any scroll speed or in either theme.
+            opening.style.opacity = String(
+              1 - clamp01((drawn - HANDOFF.meltEnd) / (HANDOFF.fadeEnd - HANDOFF.meltEnd)),
+            )
+          }
+
+          // Insurance for a hard flick: the pin is releasing (p≈1) but the drawn
+          // frame never reached the melt window (frames still decoding). Finish
+          // the overlay off in one quick fade so the worst case is a brief blink,
+          // never a stalled dark frame sitting over the hero.
+          if (p >= HANDOFF.releaseProgress && drawn < HANDOFF.meltEnd) {
+            handoffForced = true
+            if (melt) melt.style.opacity = '1'
+            gsap.to(opening, { opacity: 0, duration: 0.15, ease: 'power1.out', overwrite: true })
+          }
         },
       }),
     )
@@ -330,6 +370,24 @@ function initImageSequences(): ScrubSequenceHandle[] {
 function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n
 }
+
+// -----------------------------------------------------------------------------
+// Handoff thresholds (p3.8) — all keyed to the DRAWN frame index (0..119) except
+// where noted. The drop sequence ends on pure white; frames ~90-104 are still the
+// dark iris zoom, ~105+ is the blow-out to white.
+//   meltStart 105 : white has taken over -> begin ramping the --paper melt layer
+//   meltEnd   115 : melt fully opaque; the overlay is now flat theme paper
+//   fadeEnd   119 : overlay opacity reaches 0 (paper-over-paper cross-fade)
+//   heroFrame  96 : hero entrance leads the melt so the name is already rising
+//   heroProgress / releaseProgress are scroll progress, not frames.
+const HANDOFF = {
+  meltStart: 105,
+  meltEnd: 115,
+  fadeEnd: 119,
+  heroFrame: 96,
+  heroProgress: 0.82,
+  releaseProgress: 0.995,
+} as const
 
 // -----------------------------------------------------------------------------
 // Beat map (Fix A) — narrative pacing for the drop sequence. Each control point

@@ -50,10 +50,14 @@ export interface ScrubSequenceOptions {
    *  spending more scroll distance on key beats — instead of a flat mapping.
    *  Must be monotonic and return 0..1. Identity when omitted. */
   progressMap?: (progress: number) => number
-  /** Called on every scrub tick (and refresh) with the RAW scroll progress 0..1
-   *  (not the remapped frame progress) and the resolved frame index. Used e.g.
-   *  to fade the opening overlay near the end. */
-  onUpdate?: (progress: number, frame: number) => void
+  /** Called on every scrub tick, after every draw, and on refresh.
+   *  @param progress RAW scroll progress 0..1 (not the remapped frame progress).
+   *  @param frame    The WANTED frame index (may not be loaded yet).
+   *  @param drawnFrame The frame actually painted to the canvas right now, after
+   *    nearest-loaded resolution (-1 before the first paint). Handoff visuals must
+   *    key off THIS, never off progress — under scrub smoothing and load latency
+   *    the progress can run well ahead of the pixels on screen. */
+  onUpdate?: (progress: number, frame: number, drawnFrame: number) => void
 }
 
 export interface ScrubSequenceHandle {
@@ -77,6 +81,9 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
 
   let wantedFrame = 0
   let rafId = 0
+  /** Frame currently painted on the canvas (-1 until the first draw). */
+  let drawnFrame = -1
+  let lastProgress = 0
 
   // ---- drawing -------------------------------------------------------------
   function resize() {
@@ -118,7 +125,19 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
       const f = resolveFrame(wantedFrame)
       if (f < 0) return
       drawImage(images[f]!)
+      // Report the frame that is now genuinely on screen. Consumers driving a
+      // handoff need pixel truth, not scroll position — this also fires when a
+      // late-decoding frame upgrades the canvas without any scroll movement.
+      if (f !== drawnFrame) {
+        drawnFrame = f
+        notify()
+      }
     })
+  }
+
+  /** Push current state to the consumer (progress + wanted frame + drawn frame). */
+  function notify() {
+    opts.onUpdate?.(lastProgress, wantedFrame, drawnFrame)
   }
 
   // ---- loading -------------------------------------------------------------
@@ -164,6 +183,7 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
 
   // ---- scrub driver --------------------------------------------------------
   function render(p: number) {
+    lastProgress = p
     // Remap scroll progress -> frame progress so key beats get more scroll
     // distance (narrative pacing); identity when no map is supplied.
     const fp = opts.progressMap ? opts.progressMap(p) : p
@@ -174,7 +194,7 @@ export function createScrubSequence(opts: ScrubSequenceOptions): ScrubSequenceHa
     // or stall. Loading the exact wanted frame on demand keeps the scrub honest.
     if (!loaded[wantedFrame]) void loadFrame(wantedFrame)
     scheduleDraw()
-    opts.onUpdate?.(p, wantedFrame)
+    notify()
   }
 
   let preloadStarted = false

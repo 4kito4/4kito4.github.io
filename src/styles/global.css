@@ -735,6 +735,18 @@ body::after {
 /* Poster: cover-fit; the canvas paints an identically cover-fit bitmap on top. */
 .opening__poster { object-fit: cover; }
 .opening__canvas { display: block; }
+/* Stage 1 of the handoff — flat theme paper over the canvas. Opacity is driven
+   inline by the motion layer, keyed to the DRAWN frame (not scroll progress).
+   Because it uses --paper, the melt target matches whichever theme is active, so
+   the white climax never collides with a dark background. */
+.opening__melt {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
 .opening__hint {
   position: absolute;
   left: 50%;

@@ -23,6 +23,11 @@ export const openingHTML = /* html */ `
       decoding="async"
     />
     <canvas class="opening__canvas"></canvas>
+    <!-- Colour melt: a flat --paper layer that ramps up over the canvas across
+         the final drawn frames, so the sequence's white climax resolves to the
+         THEME's paper colour (cream in light, sumi in dark) before the overlay
+         itself fades. Without it, dark mode showed a white-to-dark colour gap. -->
+    <div class="opening__melt"></div>
 
     <p class="opening__hint">
       <span class="opening__hint-pill">スクロールで始める</span>
