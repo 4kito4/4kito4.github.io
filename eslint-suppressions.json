@@ -1,0 +1,327 @@
+{
+  "scripts/make-brand-assets.mjs": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    },
+    "id-length": {
+      "count": 28
+    },
+    "prettier/prettier": {
+      "count": 75
+    },
+    "sonarjs/unused-import": {
+      "count": 1
+    }
+  },
+  "scripts/optimize-images.mjs": {
+    "complexity": {
+      "count": 1
+    },
+    "id-length": {
+      "count": 3
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 11
+    },
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    }
+  },
+  "scripts/subset-fonts.mjs": {
+    "id-length": {
+      "count": 9
+    },
+    "prettier/prettier": {
+      "count": 68
+    },
+    "sonarjs/super-linear-regex": {
+      "count": 1
+    }
+  },
+  "src/anim/companion.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 2
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 2
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 6
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 6
+    },
+    "id-length": {
+      "count": 20
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 189
+    }
+  },
+  "src/anim/dossier.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 1
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 6
+    },
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    },
+    "id-length": {
+      "count": 11
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 79
+    }
+  },
+  "src/anim/index.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 4
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 11
+    },
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    },
+    "@typescript-eslint/no-misused-promises": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-argument": {
+      "count": 7
+    },
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 4
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 8
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 14
+    },
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    },
+    "@typescript-eslint/prefer-nullish-coalescing": {
+      "count": 1
+    },
+    "@typescript-eslint/restrict-plus-operands": {
+      "count": 1
+    },
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 2
+    },
+    "@typescript-eslint/unbound-method": {
+      "count": 1
+    },
+    "id-length": {
+      "count": 60
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 5
+    },
+    "prettier/prettier": {
+      "count": 397
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    }
+  },
+  "src/anim/sequence.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 2
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 5
+    },
+    "@typescript-eslint/no-empty-function": {
+      "count": 3
+    },
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 6
+    },
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 7
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 2
+    },
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 1
+    },
+    "@typescript-eslint/use-unknown-in-catch-callback-variable": {
+      "count": 2
+    },
+    "id-length": {
+      "count": 32
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 237
+    },
+    "sonarjs/no-identical-functions": {
+      "count": 5
+    }
+  },
+  "src/anim/sound.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 5
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 6
+    },
+    "@typescript-eslint/no-empty-function": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unnecessary-type-assertion": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 1
+    },
+    "id-length": {
+      "count": 25
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 224
+    },
+    "sonarjs/pseudo-random": {
+      "count": 1
+    }
+  },
+  "src/gsap-plugins.d.ts": {
+    "prettier/prettier": {
+      "count": 4
+    }
+  },
+  "src/main.ts": {
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 3
+    },
+    "id-length": {
+      "count": 3
+    },
+    "prettier/prettier": {
+      "count": 71
+    }
+  },
+  "src/realtime.ts": {
+    "@typescript-eslint/consistent-type-assertions": {
+      "count": 4
+    },
+    "@typescript-eslint/no-confusing-void-expression": {
+      "count": 1
+    },
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 3
+    },
+    "id-length": {
+      "count": 9
+    },
+    "prettier/prettier": {
+      "count": 100
+    }
+  },
+  "src/sections/about.ts": {
+    "prettier/prettier": {
+      "count": 2
+    }
+  },
+  "src/sections/activity.ts": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
+  "src/sections/dossier.ts": {
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 14
+    },
+    "id-length": {
+      "count": 66
+    },
+    "prettier/prettier": {
+      "count": 44
+    }
+  },
+  "src/sections/footer.ts": {
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 13
+    }
+  },
+  "src/sections/hero.ts": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
+  "src/sections/opening.ts": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
+  "src/sections/works.ts": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
+  "src/text/linebreak.ts": {
+    "id-length": {
+      "count": 1
+    },
+    "prettier/prettier": {
+      "count": 31
+    }
+  },
+  "vite.config.ts": {
+    "prettier/prettier": {
+      "count": 4
+    }
+  }
+}

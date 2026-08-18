@@ -107,10 +107,7 @@ export default tseslint.config(
     rules: {
       // A loop counter and a discarded binding are not what this is aimed at; a variable called
       // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.
-      "id-length": [
-        "error",
-        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },
-      ],
+      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],
     },
   },
   {
@@ -123,7 +120,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.config.js", "**/*.config.mjs", "**/*.config.cjs"],
+    files: ["**/*.config.js", "**/*.config.mjs", "**/*.config.cjs", "**/*.config.ts", "scripts/**/*.mjs"],
     languageOptions: { parserOptions: { projectService: false } },
     ...tseslint.configs.disableTypeChecked,
   },
