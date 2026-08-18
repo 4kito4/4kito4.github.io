@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "tool": "ever-better",
+  "phase": "freeze",
+  "updatedAt": "2026-08-18T02:34:47.295Z",
+  "frozenAt": null,
+  "diagnosedAt": "2026-08-18T02:34:47.294Z",
+  "diagnosedCommit": "b728baedc646d0d1299b31e664277b23d0412d0e",
+  "diagnosis": {
+    "packageManager": "npm",
+    "language": "mixed",
+    "framework": "none",
+    "runtime": "both",
+    "typescriptFileRatio": 0.8421052631578947,
+    "tooling": {
+      "eslint": "flat",
+      "prettier": true,
+      "testRunner": "vitest",
+      "knip": true,
+      "jscpd": true,
+      "agentInstructions": [
+        "CLAUDE.md",
+        "AGENTS.md"
+      ]
+    },
+    "scripts": {
+      "lint": true,
+      "format": true,
+      "build": true,
+      "typecheck": true,
+      "test": true
+    },
+    "ci": {
+      "present": true,
+      "runners": [
+        "ubuntu-latest"
+      ],
+      "runsLint": false,
+      "runsTest": false,
+      "runsBuild": true,
+      "runsTypecheck": false,
+      "runsEverBetterCheck": true
+    },
+    "sizes": {
+      "total": 19,
+      "overFileLimit": 1,
+      "largest": [
+        {
+          "path": "src/anim/index.ts",
+          "ext": "ts",
+          "lines": 1052
+        }
+      ]
+    },
+    "gaps": [
+      {
+        "id": "typescript-partial",
+        "title": "Only 84% of sources are TypeScript",
+        "detail": "The type-aware rules cover the typed part only, so the remaining .js files are the blind spot the counts will not show.",
+        "phase": "tighten"
+      },
+      {
+        "id": "ci-runners",
+        "title": "CI does not run on macos, windows",
+        "detail": "Path handling and file watching break per platform, and only per platform.",
+        "phase": "review"
+      },
+      {
+        "id": "ci-lint",
+        "title": "CI does not run lint",
+        "detail": "The rules are configured but nothing runs them on a pull request.",
+        "phase": "review"
+      },
+      {
+        "id": "file-size",
+        "title": "1 files over 600 lines",
+        "detail": "These are the split-and-DRY backlog. Knowing the count now makes the limit a choice.",
+        "phase": "split"
+      },
+      {
+        "id": "tsconfig-strict",
+        "title": "TypeScript `strict` is off",
+        "detail": "Everything else in the type tier is moot until this is on.",
+        "phase": "tighten"
+      }
+    ]
+  },
+  "rules": {},
+  "counters": {},
+  "log": []
+}

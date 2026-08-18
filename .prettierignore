@@ -1,0 +1,8 @@
+dist/
+build/
+coverage/
+
+# Written by ever-better; machine-generated, so Prettier must not police it.
+.ever-better/
+QUALITY.md
+eslint-suppressions.json
