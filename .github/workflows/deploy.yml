@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Quality gate (ever-better)
+        run: npx ever-better check
+
       - name: Build
         run: npm run build
 
