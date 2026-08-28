@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>プライバシーポリシー — gws-cli</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 5rem;
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.9; font-size: 16px;
+  }
+  h1 { font-size: 1.5rem; line-height: 1.5; margin-bottom: .25rem; }
+  h2 { font-size: 1.075rem; margin-top: 2.5rem; }
+  .meta { opacity: .65; font-size: .875rem; margin-top: 0; }
+  ul { padding-left: 1.25rem; }
+  li { margin: .4rem 0; }
+  footer { margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent); font-size: .875rem; opacity: .75; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+
+<h1>プライバシーポリシー</h1>
+<p class="meta">対象アプリケーション: <strong>gws-cli</strong>／最終更新: 2026年8月28日</p>
+
+<p>
+gws-cli は、開発者本人が自分の Google アカウントのデータを自分の端末から操作するために作った、
+個人用のコマンドラインツールです。一般公開しておらず、開発者以外の利用者を想定していません。
+本ポリシーは Google OAuth の同意画面から参照される目的で公開しています。
+</p>
+
+<h2>取得する情報</h2>
+<p>
+利用者が OAuth 同意画面で明示的に許可した範囲に限り、Google Workspace API を通じて
+利用者自身のアカウントのデータ（Google ドライブのファイル、Gmail のメッセージ、
+カレンダーの予定、スプレッドシート、ドキュメント等）にアクセスします。
+許可されていない範囲のデータにはアクセスしません。
+</p>
+
+<h2>利用目的</h2>
+<p>
+取得したデータは、利用者本人が実行したコマンドを処理するためだけに、
+利用者本人の端末上で使用します。それ以外の目的では利用しません。
+</p>
+
+<h2>保存と送信</h2>
+<ul>
+  <li>取得したデータをサーバーに保存しません。gws-cli は利用者の端末上でのみ動作し、開発者が管理するサーバーは存在しません。</li>
+  <li>データの送信先は Google の API エンドポイントに限られます。第三者への提供、販売、共有は一切行いません。</li>
+  <li>アクセストークンおよびリフレッシュトークンは利用者の端末内に暗号化して保存されます（AES-256-GCM、鍵は OS のキーリングに保管）。</li>
+  <li>広告、解析、機械学習モデルの学習など、いかなる二次利用も行いません。</li>
+</ul>
+
+<h2>アクセス権の取り消し</h2>
+<p>
+利用者は <a href="https://myaccount.google.com/permissions">Google アカウントのアクセス権限ページ</a>
+からいつでも本アプリの権限を取り消せます。取り消し後、gws-cli はデータにアクセスできなくなります。
+端末に保存されたトークンは <code>gws auth logout</code> で削除できます。
+</p>
+
+<h2>Google API サービスのユーザーデータに関するポリシー</h2>
+<p>
+gws-cli による Google API から取得した情報の利用および他アプリへの移転は、
+<a href="https://developers.google.com/terms/api-services-user-data-policy">Google API サービスのユーザーデータに関するポリシー</a>
+（限定使用の要件を含む）に準拠します。
+</p>
+
+<h2>お問い合わせ</h2>
+<p>
+本ポリシーに関するお問い合わせは
+<a href="https://github.com/4kito4">GitHub (@4kito4)</a>
+まで。
+</p>
+
+<footer>
+  <a href="/">← あきはと旅するポートフォリオ に戻る</a>
+</footer>
+
+</body>
+</html>
